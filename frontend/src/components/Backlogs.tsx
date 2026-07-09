@@ -1,8 +1,6 @@
 import * as React from 'react'
 import { useMemo, useState } from 'react'
-import { useRouter } from 'next/router'
-import { MoreVertical, Search, PlusCircle } from 'lucide-react'
-import Button from './Button'
+import { MoreVertical, Search } from 'lucide-react'
 import { ProjectRecord } from '@/context/ProjectContext'
 import { BoardSkeleton } from './Skeleton'
 
@@ -24,7 +22,6 @@ type BacklogsProps = {
 }
 
 export default function Backlogs({ selectedProject, isLoading = false }: BacklogsProps) {
-  const router = useRouter()
   const columns: StoryStatus[] = ['Backlog', 'In Progress', 'QA Reviews', 'Done']
   const [searchTerm, setSearchTerm] = useState('')
 

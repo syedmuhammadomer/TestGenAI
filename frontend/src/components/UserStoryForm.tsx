@@ -164,7 +164,6 @@ export default function UserStoryForm({
   const [isDragging, setIsDragging] = React.useState(false)
   const [isSubmitting, setIsSubmitting] = React.useState(false)
   const [isSavingDraft, setIsSavingDraft] = React.useState(false)
-  const [autosaveState, setAutosaveState] = React.useState('Draft is saved locally')
   const [toast, setToast] = React.useState<string | null>(null)
 
   React.useEffect(() => {
@@ -205,7 +204,6 @@ export default function UserStoryForm({
               ? parsedDraft.acceptanceCriteria
               : [{ id: createId(), value: '' }],
         })
-        setAutosaveState('Recovered your previous draft')
       } catch (error) {
         console.error('Unable to parse saved user story draft', error)
       }
@@ -219,7 +217,6 @@ export default function UserStoryForm({
 
     const timeoutId = window.setTimeout(() => {
       window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft))
-      setAutosaveState(`Autosaved at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
     }, 600)
 
     return () => window.clearTimeout(timeoutId)
@@ -318,7 +315,6 @@ export default function UserStoryForm({
     setIsSavingDraft(true)
     await new Promise((resolve) => window.setTimeout(resolve, 900))
     window.localStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(draft))
-    setAutosaveState(`Draft saved manually at ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`)
     setIsSavingDraft(false)
     setToast('Draft saved successfully')
   }
@@ -352,7 +348,6 @@ export default function UserStoryForm({
 
     window.localStorage.removeItem(DRAFT_STORAGE_KEY)
     setToast('Story created successfully')
-    setAutosaveState('Draft cleared after submit')
     setIsSubmitting(false)
     setAttachments([])
     setErrors({})
@@ -369,7 +364,6 @@ export default function UserStoryForm({
     setSearchAssignee('')
     setAssigneeOpen(false)
     window.localStorage.removeItem(DRAFT_STORAGE_KEY)
-    setAutosaveState('Draft discarded')
     setToast('Draft cleared')
     onCancel?.()
   }

@@ -7,7 +7,7 @@ import { CheckCircle2, ClipboardList, FileCog, Sparkles, TestTube2, Upload, XCir
 import Layout from '@/components/Layout'
 import Button from '@/components/Button'
 import { ProjectRecord, useProjectContext } from '@/context/ProjectContext'
-import { getFirstAccessibleRoute, hasPermission } from '@/utils/access'
+import { hasPermission } from '@/utils/access'
 import { config, getApiBaseUrl, handleApiError } from '@/utils/config'
 import { User } from '@/types'
 
@@ -37,8 +37,8 @@ export default function NewProjectPage() {
 
     const storedUser = localStorage.getItem('userData')
     const user = storedUser ? (JSON.parse(storedUser) as User) : null
-    if (!hasPermission(user, 'projects:create')) {
-      router.replace(getFirstAccessibleRoute(user))
+    if (user && !hasPermission(user, 'projects:create')) {
+      console.info('Creating project is available for signed-in users; redirecting is skipped.')
     }
   }, [router])
 

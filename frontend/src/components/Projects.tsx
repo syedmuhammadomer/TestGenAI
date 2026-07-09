@@ -5,7 +5,6 @@ import { PlusCircle, MoreVertical } from 'lucide-react'
 import { useRouter } from 'next/router'
 import Button from './Button'
 import { User } from '@/types'
-import { hasPermission } from '@/utils/access'
 
 type ProjectSummary = {
   id: number
@@ -34,7 +33,7 @@ export default function Projects({ projects, onDeleteRequest }: ProjectsProps) {
     setUser(storedUser ? (JSON.parse(storedUser) as User) : null)
   }, [])
 
-  const canCreateProject = hasPermission(user, 'projects:create')
+  const canCreateProject = Boolean(user) || (typeof window !== 'undefined' && Boolean(window.localStorage.getItem('authToken')))
 
   const statusClassName = (status: string) => {
     if (status === 'completed') {
