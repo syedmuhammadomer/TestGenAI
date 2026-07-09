@@ -4,6 +4,7 @@ import { config, storage, handleApiError } from '@/utils/config'
 
 class AuthService {
   private api: AxiosInstance
+  private readonly useMockAuth = process.env.NEXT_PUBLIC_USE_AUTH_MOCK === 'true'
 
   constructor() {
     this.api = axios.create({
@@ -100,21 +101,22 @@ class AuthService {
   }
 
   /**
-   * Register user (mocked on client if backend doesn't provide endpoint)
-   * Stores a pending registration with an OTP in localStorage and simulates sending OTP.
+   * Register user via backend.
    */
   async register({ firstName, lastName, email, password, confirmPassword }: { firstName: string; lastName: string; email: string; password: string; confirmPassword: string }): Promise<{ message: string }> {
-    // If backend endpoint exists, try calling it first
-    if (this.api) {
-      try {
-        const response = await this.api.post('/auth/register', { firstName, lastName, email, password, confirmPassword })
-        return response.data
-      } catch {
-        // fall back to client-side mock if not implemented
+    try {
+      const response = await this.api.post('/auth/register', { firstName, lastName, email, password, confirmPassword })
+      return response.data
+    } catch (error) {
+      if (!this.useMockAuth) {
+        throw {
+          message: handleApiError(error),
+          code: 'REGISTER_ERROR'
+        } as AuthError
       }
     }
 
-    if (typeof window !== 'undefined') {
+    if (this.useMockAuth && typeof window !== 'undefined') {
       const otp = String(Math.floor(100000 + Math.random() * 900000))
       const pending = { firstName, lastName, email, password, otp, createdAt: Date.now() }
       localStorage.setItem('pendingRegistration', JSON.stringify(pending))
@@ -130,10 +132,9 @@ class AuthService {
   }
 
   /**
-   * Verify OTP for a pending registration (client-side mock if backend not implemented)
+   * Verify OTP for a pending registration.
    */
   async verifyOtp({ email, otp }: { email: string; otp: string }): Promise<{ token: string }> {
-    // Try backend endpoint first
     try {
       const response = await this.api.post('/auth/verify-otp', { email, otp })
       if (response.data?.token) {
@@ -143,8 +144,13 @@ class AuthService {
         storage.setUser(response.data.user)
       }
       return response.data
-    } catch {
-      // fallback to client-side mock
+    } catch (error) {
+      if (!this.useMockAuth) {
+        throw {
+          message: handleApiError(error),
+          code: 'VERIFY_OTP_ERROR'
+        } as AuthError
+      }
     }
 
     if (typeof window === 'undefined') {
@@ -173,12 +179,25 @@ class AuthService {
   }
 
   /**
-   * Resend OTP (client-side mock)
+   * Resend OTP.
    */
   async resendOtp(email: string): Promise<{ message: string }> {
+    try {
+      const response = await this.api.post('/auth/resend-otp', { email })
+      return response.data
+    } catch (error) {
+      if (!this.useMockAuth) {
+        throw {
+          message: handleApiError(error),
+          code: 'RESEND_OTP_ERROR'
+        } as AuthError
+      }
+    }
+
     if (typeof window === 'undefined') {
       throw { message: 'Unavailable' } as AuthError
     }
+
     const otp = String(Math.floor(100000 + Math.random() * 900000))
     const pendingRaw = localStorage.getItem('pendingRegistration')
     const pending = pendingRaw ? JSON.parse(pendingRaw) : { email }

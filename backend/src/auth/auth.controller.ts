@@ -1,8 +1,11 @@
-import { Body, Controller, Post, UnauthorizedException } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
+import { Body, Controller, Get, Param, ParseIntPipe, Patch, Post, Req, UnauthorizedException, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto, VerifyOtpDto, ResendOtpDto } from './dto/register.dto';
+import { UpdateRoleDto } from './dto/update-role.dto';
+import { AuthenticatedRequest, JwtAuthGuard } from './guards/jwt-auth.guard';
+import { AdminGuard } from './guards/admin.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -137,5 +140,29 @@ export class AuthController {
   async resendOtp(@Body() body: ResendOtpDto) {
     const { email } = body;
     return this.authService.resendOtp(email);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Get the current authenticated user profile' })
+  async me(@Req() req: AuthenticatedRequest) {
+    return this.authService.getMe(req.user!.id);
+  }
+
+  @Get('users')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'List all users (admin only)' })
+  async listUsers() {
+    return this.authService.listUsers();
+  }
+
+  @Patch('users/:id/role')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: "Update a user's role (admin only)" })
+  async updateUserRole(@Param('id', ParseIntPipe) id: number, @Body() body: UpdateRoleDto) {
+    return this.authService.updateUserRole(id, body.role);
   }
 }

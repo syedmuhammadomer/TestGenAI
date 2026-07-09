@@ -8,23 +8,15 @@ type FeatureItem = {
 }
 
 export type UserStoryItem = {
-  id?: number
-  title?: string
+  id: number
   actor: string
   goal: string
-  description?: string
   benefit?: string
   acceptanceCriteria?: string
-  priority?: 'High' | 'Medium' | 'Low'
-  status?: 'Backlog' | 'In Progress' | 'QA Review' | 'Done'
-  dueDate?: string
-  assigneeId?: string
-  assigneeName?: string
-  attachmentNames?: string[]
+  source?: 'ai' | 'manual'
 }
 
-export type TestCaseItem = {
-  id?: number
+type TestCaseItem = {
   testCaseId: string
   title: string
   preconditions?: string
@@ -39,10 +31,6 @@ type RtmEntry = {
   linkedTestCases?: string[]
 }
 
-type ProjectAiResponse = {
-  summary?: string
-}
-
 export type ProjectRecord = {
   id: number
   name: string
@@ -53,7 +41,6 @@ export type ProjectRecord = {
   userStories?: UserStoryItem[]
   testCases?: TestCaseItem[]
   rtm?: RtmEntry[]
-  aiResponse?: ProjectAiResponse
   createdAt?: string
   updatedAt?: string
 }
@@ -66,6 +53,7 @@ type ProjectContextValue = {
   error: string | null
   setSelectedProjectId: (projectId: number) => void
   reloadProjects: () => Promise<void>
+  refreshSelectedProject: () => Promise<void>
 }
 
 const ProjectContext = createContext<ProjectContextValue | undefined>(undefined)
@@ -94,15 +82,7 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       setLoading(true)
       setError(null)
       const response = await axios.get<ProjectRecord[]>(config.endpoints.projects)
-      const storedUser =
-        typeof window !== 'undefined' ? localStorage.getItem('userData') : null
-      const parsedUser = storedUser
-        ? (JSON.parse(storedUser) as { assignedProject?: string | null; permissions?: string[] })
-        : null
-      const nextProjects =
-        parsedUser?.permissions?.includes('*') || !parsedUser?.assignedProject
-          ? response.data
-          : response.data.filter((project) => project.name === parsedUser.assignedProject)
+      const nextProjects = response.data
       setProjects(nextProjects)
 
       setSelectedProjectIdState((currentId) => {
@@ -135,6 +115,18 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     void reloadProjects()
   }, [reloadProjects])
+
+  const refreshSelectedProject = useCallback(async () => {
+    if (selectedProjectId == null) {
+      return
+    }
+    try {
+      const response = await axios.get<ProjectRecord>(`${config.endpoints.projects}/${selectedProjectId}`)
+      setSelectedProject(response.data)
+    } catch (loadError) {
+      console.error('Failed to load selected project details', loadError)
+    }
+  }, [selectedProjectId])
 
   useEffect(() => {
     if (selectedProjectId == null) {
@@ -174,8 +166,9 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
       error,
       setSelectedProjectId,
       reloadProjects,
+      refreshSelectedProject,
     }),
-    [projects, selectedProjectId, selectedProject, loading, error, setSelectedProjectId, reloadProjects],
+    [projects, selectedProjectId, selectedProject, loading, error, setSelectedProjectId, reloadProjects, refreshSelectedProject],
   )
 
   return <ProjectContext.Provider value={value}>{children}</ProjectContext.Provider>

@@ -20,6 +20,9 @@ export class User {
   @Column({ default: false })
   verified: boolean;
 
+  @Column({ type: 'varchar', default: 'member' })
+  role: 'admin' | 'member';
+
   @CreateDateColumn()
   createdAt: Date;
 

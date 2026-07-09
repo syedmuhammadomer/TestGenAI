@@ -1,43 +1,24 @@
-import { IsArray, IsDateString, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
-import { UserStoryPriority, UserStoryStatus } from '../entities/user-story.entity';
+import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserStoryDto {
-  @IsString()
-  @MaxLength(255)
-  title: string;
-
-  @IsString()
-  @MaxLength(100)
-  userRole: string;
-
-  @IsString()
-  description: string;
-
-  @IsEnum(UserStoryPriority)
-  priority: UserStoryPriority;
-
-  @IsOptional()
-  @IsDateString()
-  dueDate?: string;
-
+  @ApiProperty({ description: 'Who the story is for', example: 'Registered member', required: false })
   @IsOptional()
   @IsString()
-  assigneeId?: string;
+  actor?: string;
 
+  @ApiProperty({ description: 'What the actor wants to accomplish', example: 'search the catalog by title' })
+  @IsNotEmpty({ message: 'Goal must not be empty' })
+  @IsString()
+  goal: string;
+
+  @ApiProperty({ description: 'Why the actor wants this', example: 'so I can find books quickly', required: false })
   @IsOptional()
   @IsString()
-  assigneeName?: string;
+  benefit?: string;
 
-  @IsOptional()
-  @IsArray()
-  @IsString({ each: true })
-  attachmentNames?: string[];
-
+  @ApiProperty({ description: 'Acceptance criteria', required: false })
   @IsOptional()
   @IsString()
   acceptanceCriteria?: string;
-
-  @IsOptional()
-  @IsEnum(UserStoryStatus)
-  status?: UserStoryStatus;
 }

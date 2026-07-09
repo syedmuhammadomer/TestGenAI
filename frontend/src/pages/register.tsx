@@ -1,7 +1,7 @@
-import React, { useEffect, useState } from 'react'
+import React, { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
-import { Mail, Lock, CheckCircle, AlertCircle, User, Cpu, Zap, BarChart3, ShieldCheck, TrendingUp } from 'lucide-react'
+import { Mail, Lock, CheckCircle, AlertCircle, User, Cpu, Zap, BarChart3, ShieldCheck, TrendingUp, Eye, EyeOff } from 'lucide-react'
 import { validateEmail, validatePassword, validateName } from '@/utils/validation'
 import { authService } from '@/services/authService'
 import Button from '@/components/Button'
@@ -16,20 +16,10 @@ export default function Register() {
   const [errors, setErrors] = useState<{ firstName?: string; lastName?: string; email?: string; password?: string; confirm?: string }>({})
   const [touched, setTouched] = useState<{ [k: string]: boolean }>({})
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
-
-  useEffect(() => {
-    if (!router.isReady) {
-      return
-    }
-
-    const invitedEmail = router.query.email
-
-    if (typeof invitedEmail === 'string' && invitedEmail.trim()) {
-      setEmail(invitedEmail.trim())
-    }
-  }, [router.isReady, router.query.email])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -67,131 +57,97 @@ export default function Register() {
     }
   }
 
+  const inputClass = (hasError?: boolean) => `w-full pl-10 pr-4 py-3.5 rounded-lg border outline-none transition ${
+    hasError
+      ? 'border-rose-400 bg-rose-50 text-slate-900 placeholder-slate-400'
+      : 'border-slate-200 bg-white text-slate-900 placeholder-slate-400 hover:border-slate-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-100'
+  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`
+
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 py-8" style={{
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-    }}>
+    <div className="min-h-screen flex items-center justify-center px-4 py-8 bg-surface">
       <div className="w-full max-w-7xl grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
         {/* Left banner (SQA themed) */}
-        <div className="hidden md:flex flex-col items-start justify-center p-12 rounded-3xl gap-8" style={{
-          background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0%, rgba(24, 24, 27, 0.2) 100%)',
-          border: '2px solid rgba(255, 255, 255, 0.14)',
-          boxShadow: '0 0 40px rgba(255, 255, 255, 0.06)'
-        }}>
+        <div className="hidden md:flex flex-col items-start justify-center p-12 rounded-3xl gap-8 bg-white border border-slate-200 shadow-elevated">
           <div className="flex items-center gap-4">
-            <div className="p-4 rounded-xl" style={{
-              background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.32) 0%, rgba(24, 24, 27, 0.22) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.18)'
-            }}>
-              <Cpu size={36} className="text-slate-200" />
+            <div className="p-4 rounded-xl bg-primary-50 border border-primary-100">
+              <Cpu size={32} className="text-primary-600" />
             </div>
             <div>
-              <h2 className="text-4xl font-bold bg-gradient-to-r from-black to-slate-700 bg-clip-text text-transparent">TestGen SQA</h2>
-              <p className="text-slate-300 text-sm font-medium">Next-gen quality automation platform</p>
+              <h2 className="text-3xl font-extrabold gradient-text">TestGen SQA</h2>
+              <p className="text-slate-500 text-sm font-medium">Next-gen quality automation platform</p>
             </div>
           </div>
 
-          <div className="mt-4">
-            <p className="text-lg font-semibold text-white mb-6">Revolutionize your testing with intelligent automation:</p>
-            
-            <div className="space-y-4">
-              <div className="flex items-start gap-4 p-4 rounded-xl" style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.12)'
-              }}>
-                <Zap size={24} className="text-slate-200 flex-shrink-0 mt-1" />
+          <div className="mt-2">
+            <p className="text-lg font-semibold text-slate-900 mb-6">Revolutionize your testing with intelligent automation:</p>
+
+            <div className="space-y-3">
+              <div className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <Zap size={22} className="text-primary-600 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-white">90% Faster Test Generation</h3>
-                  <p className="text-sm text-slate-300">AI-powered automation in minutes</p>
+                  <h3 className="font-semibold text-slate-900">90% Faster Test Generation</h3>
+                  <p className="text-sm text-slate-500">AI-powered automation in minutes</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 p-4 rounded-xl" style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.12)'
-              }}>
-                <BarChart3 size={24} className="text-slate-200 flex-shrink-0 mt-1" />
+              <div className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <BarChart3 size={22} className="text-primary-600 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-white">Real-time Analytics</h3>
-                  <p className="text-sm text-slate-300">Detailed quality metrics & insights</p>
+                  <h3 className="font-semibold text-slate-900">Real-time Analytics</h3>
+                  <p className="text-sm text-slate-500">Detailed quality metrics & insights</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 p-4 rounded-xl" style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.12)'
-              }}>
-                <ShieldCheck size={24} className="text-slate-200 flex-shrink-0 mt-1" />
+              <div className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <ShieldCheck size={22} className="text-primary-600 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-white">Enterprise Security</h3>
-                  <p className="text-sm text-slate-300">End-to-end encryption & compliance</p>
+                  <h3 className="font-semibold text-slate-900">Enterprise Security</h3>
+                  <p className="text-sm text-slate-500">End-to-end encryption & compliance</p>
                 </div>
               </div>
 
-              <div className="flex items-start gap-4 p-4 rounded-xl" style={{
-                background: 'rgba(255, 255, 255, 0.04)',
-                border: '1px solid rgba(255, 255, 255, 0.12)'
-              }}>
-                <TrendingUp size={24} className="text-slate-200 flex-shrink-0 mt-1" />
+              <div className="flex items-start gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100">
+                <TrendingUp size={22} className="text-primary-600 flex-shrink-0 mt-1" />
                 <div>
-                  <h3 className="font-semibold text-white">Continuous Improvement</h3>
-                  <p className="text-sm text-slate-300">ML-driven test optimization</p>
+                  <h3 className="font-semibold text-slate-900">Continuous Improvement</h3>
+                  <p className="text-sm text-slate-500">ML-driven test optimization</p>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-4 flex gap-2 flex-wrap">
-            <div className="px-4 py-2 rounded-full text-sm font-medium" style={{
-              background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0%, rgba(24, 24, 27, 0.2) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              color: '#ffffff'
-            }}>Automation</div>
-            <div className="px-4 py-2 rounded-full text-sm font-medium" style={{
-              background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0%, rgba(24, 24, 27, 0.2) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              color: '#ffffff'
-            }}>CI/CD</div>
-            <div className="px-4 py-2 rounded-full text-sm font-medium" style={{
-              background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0%, rgba(24, 24, 27, 0.2) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              color: '#ffffff'
-            }}>AI-Powered</div>
-            <div className="px-4 py-2 rounded-full text-sm font-medium" style={{
-              background: 'linear-gradient(135deg, rgba(0, 0, 0, 0.28) 0%, rgba(24, 24, 27, 0.2) 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.18)',
-              color: '#ffffff'
-            }}>Enterprise</div>
+          <div className="mt-2 flex gap-2 flex-wrap">
+            {['Automation', 'CI/CD', 'AI-Powered', 'Enterprise'].map((tag) => (
+              <div key={tag} className="px-3 py-1.5 rounded-full text-sm font-medium bg-primary-50 border border-primary-100 text-primary-700">
+                {tag}
+              </div>
+            ))}
           </div>
         </div>
 
         {/* Registration Card */}
-        <div className="border-2 border-slate-600 rounded-3xl p-10" style={{
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.9) 0%, rgba(30, 41, 59, 0.9) 100%)',
-          backdropFilter: 'blur(20px)',
-          boxShadow: '0 0 40px rgba(255, 255, 255, 0.06)'
-        }}>
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 sm:p-10 shadow-elevated">
           <div className="mb-8">
-            <h1 className="text-4xl font-bold text-white mb-3">Create an account</h1>
-            <p className="text-slate-300 text-lg">Join thousands using TestGen SQA for intelligent testing</p>
+            <h1 className="text-3xl font-bold text-slate-900 mb-2">Create an account</h1>
+            <p className="text-slate-500">Join thousands using TestGen SQA for intelligent testing</p>
           </div>
 
           {serverError && (
-            <div className="mb-4 p-3 bg-slate-500/10 border border-slate-500/50 rounded-lg flex items-center gap-2 text-sm text-slate-400">
+            <div className="mb-4 p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2 text-sm text-rose-700">
               <AlertCircle size={16} /> {serverError}
             </div>
           )}
 
           {success && (
-            <div className="mb-4 p-3 bg-slate-500/10 border border-slate-500/50 rounded-lg flex items-center gap-2 text-sm text-slate-400">
+            <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-sm text-emerald-700">
               <CheckCircle size={16} /> {success}
             </div>
           )}
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* First Name Field */}
             <div>
-              <label htmlFor="firstName" className="block text-sm font-semibold text-white mb-2">First Name</label>
+              <label htmlFor="firstName" className="block text-sm font-semibold text-slate-700 mb-2">First Name</label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"><User size={18} /></div>
                 <input
@@ -202,21 +158,17 @@ export default function Register() {
                   onBlur={() => setTouched(prev => ({ ...prev, firstName: true }))}
                   placeholder="John"
                   disabled={loading}
-                  className={`w-full pl-10 pr-4 py-4 rounded-lg border outline-none transition ${
-                    touched.firstName && errors.firstName
-                      ? 'border-slate-500 bg-slate-500/5 text-white placeholder-slate-500'
-                      : 'border-slate-600 bg-slate-900/50 text-white placeholder-slate-500 hover:border-slate-500 focus:border-white'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={inputClass(touched.firstName && !!errors.firstName)}
                 />
               </div>
               {touched.firstName && errors.firstName && (
-                <div className="mt-2 flex items-center gap-1 text-slate-400 text-sm"><AlertCircle size={14} /> {errors.firstName}</div>
+                <div className="mt-2 flex items-center gap-1 text-rose-600 text-sm"><AlertCircle size={14} /> {errors.firstName}</div>
               )}
             </div>
 
             {/* Last Name Field */}
             <div>
-              <label htmlFor="lastName" className="block text-sm font-semibold text-white mb-2">Last Name</label>
+              <label htmlFor="lastName" className="block text-sm font-semibold text-slate-700 mb-2">Last Name</label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"><User size={18} /></div>
                 <input
@@ -227,21 +179,17 @@ export default function Register() {
                   onBlur={() => setTouched(prev => ({ ...prev, lastName: true }))}
                   placeholder="Doe"
                   disabled={loading}
-                  className={`w-full pl-10 pr-4 py-4 rounded-lg border outline-none transition ${
-                    touched.lastName && errors.lastName
-                      ? 'border-slate-500 bg-slate-500/5 text-white placeholder-slate-500'
-                      : 'border-slate-600 bg-slate-900/50 text-white placeholder-slate-500 hover:border-slate-500 focus:border-white'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={inputClass(touched.lastName && !!errors.lastName)}
                 />
               </div>
               {touched.lastName && errors.lastName && (
-                <div className="mt-2 flex items-center gap-1 text-slate-400 text-sm"><AlertCircle size={14} /> {errors.lastName}</div>
+                <div className="mt-2 flex items-center gap-1 text-rose-600 text-sm"><AlertCircle size={14} /> {errors.lastName}</div>
               )}
             </div>
 
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-white mb-2">Email Address</label>
+              <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-2">Email Address</label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"><Mail size={18} /></div>
                 <input
@@ -252,63 +200,71 @@ export default function Register() {
                   onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
                   placeholder="you@example.com"
                   disabled={loading}
-                  className={`w-full pl-10 pr-4 py-4 rounded-lg border outline-none transition ${
-                    touched.email && errors.email
-                      ? 'border-slate-500 bg-slate-500/5 text-white placeholder-slate-500'
-                      : 'border-slate-600 bg-slate-900/50 text-white placeholder-slate-500 hover:border-slate-500 focus:border-white'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={inputClass(touched.email && !!errors.email)}
                 />
               </div>
               {touched.email && errors.email && (
-                <div className="mt-2 flex items-center gap-1 text-slate-400 text-sm"><AlertCircle size={14} /> {errors.email}</div>
+                <div className="mt-2 flex items-center gap-1 text-rose-600 text-sm"><AlertCircle size={14} /> {errors.email}</div>
               )}
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-white mb-2">Password</label>
+              <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-2">Password</label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"><Lock size={18} /></div>
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   onBlur={() => setTouched(prev => ({ ...prev, password: true }))}
                   placeholder="••••••••"
                   disabled={loading}
-                  className={`w-full pl-10 pr-4 py-4 rounded-lg border outline-none transition ${
-                    touched.password && errors.password
-                      ? 'border-slate-500 bg-slate-500/5 text-white placeholder-slate-500'
-                      : 'border-slate-600 bg-slate-900/50 text-white placeholder-slate-500 hover:border-slate-500 focus:border-white'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`${inputClass(touched.password && !!errors.password)} pr-10`}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(prev => !prev)}
+                  disabled={loading}
+                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               {touched.password && errors.password && (
-                <div className="mt-2 flex items-center gap-1 text-slate-400 text-sm"><AlertCircle size={14} /> {errors.password}</div>
+                <div className="mt-2 flex items-center gap-1 text-rose-600 text-sm"><AlertCircle size={14} /> {errors.password}</div>
               )}
             </div>
 
             <div>
-              <label htmlFor="confirm" className="block text-sm font-semibold text-white mb-2">Confirm Password</label>
+              <label htmlFor="confirm" className="block text-sm font-semibold text-slate-700 mb-2">Confirm Password</label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400"><Lock size={18} /></div>
                 <input
                   id="confirm"
-                  type="password"
+                  type={showConfirm ? 'text' : 'password'}
                   value={confirm}
                   onChange={(e) => setConfirm(e.target.value)}
                   onBlur={() => setTouched(prev => ({ ...prev, confirm: true }))}
                   placeholder="Re-enter password"
                   disabled={loading}
-                  className={`w-full pl-10 pr-4 py-4 rounded-lg border outline-none transition ${
-                    touched.confirm && errors.confirm
-                      ? 'border-slate-500 bg-slate-500/5 text-white placeholder-slate-500'
-                      : 'border-slate-600 bg-slate-900/50 text-white placeholder-slate-500 hover:border-slate-500 focus:border-white'
-                  } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  className={`${inputClass(touched.confirm && !!errors.confirm)} pr-10`}
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirm(prev => !prev)}
+                  disabled={loading}
+                  tabIndex={-1}
+                  className="absolute right-3 top-1/2 transform -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                  aria-label={showConfirm ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
               </div>
               {touched.confirm && errors.confirm && (
-                <div className="mt-2 flex items-center gap-1 text-slate-400 text-sm"><AlertCircle size={14} /> {errors.confirm}</div>
+                <div className="mt-2 flex items-center gap-1 text-rose-600 text-sm"><AlertCircle size={14} /> {errors.confirm}</div>
               )}
             </div>
 
@@ -316,14 +272,13 @@ export default function Register() {
               type="submit"
               size="lg"
               isLoading={loading}
-              className="w-full mt-2 text-lg font-semibold"
-              style={{ background: 'linear-gradient(135deg, #000000 0%, #18181b 100%)' }}
+              className="w-full mt-2"
             >
               {loading ? 'Creating account...' : 'Create account'}
             </Button>
 
-            <div className="text-center mt-6">
-              <span className="text-slate-300 text-base">Already have an account? <Link href="/login" className="text-slate-200 font-semibold hover:text-slate-300">Login</Link></span>
+            <div className="text-center mt-4">
+              <span className="text-slate-500 text-sm">Already have an account? <Link href="/login" className="text-primary-600 font-semibold hover:text-primary-700">Login</Link></span>
             </div>
           </form>
         </div>

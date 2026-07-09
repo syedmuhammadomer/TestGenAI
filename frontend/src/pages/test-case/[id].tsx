@@ -38,9 +38,9 @@ export default function TestCaseDetailPage() {
       <div className="p-6 space-y-6">
         <header className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Test Case Detail</p>
-            <h1 className="text-3xl font-semibold text-white">{testCase.title}</h1>
-            <p className="app-subtext">Review requirements, steps, and expected results before execution.</p>
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Test Case Detail</p>
+            <h1 className="text-3xl font-semibold text-slate-900">{testCase.title}</h1>
+            <p className="text-sm text-slate-500">Review requirements, steps, and expected results before execution.</p>
           </div>
           <div className="flex gap-3">
             <Button variant="outline" size="md">Export</Button>
@@ -48,48 +48,48 @@ export default function TestCaseDetailPage() {
           </div>
         </header>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-sm shadow-slate-950/40">
-          <div className="flex flex-wrap gap-6 text-sm text-slate-300">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+          <div className="flex flex-wrap gap-6 text-sm text-slate-600">
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Test Case ID</p>
-              <p className="font-semibold text-white">{testCase.id}</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Test Case ID</p>
+              <p className="font-semibold text-slate-900">{testCase.id}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Requirement</p>
-              <p className="font-semibold text-white">{testCase.requirement}</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Requirement</p>
+              <p className="font-semibold text-slate-900">{testCase.requirement}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Scenario</p>
-              <p className="font-semibold text-white">{testCase.scenario}</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Scenario</p>
+              <p className="font-semibold text-slate-900">{testCase.scenario}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Priority</p>
-              <p className="font-semibold text-white">{testCase.priority}</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Priority</p>
+              <p className="font-semibold text-slate-900">{testCase.priority}</p>
             </div>
             <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Status</p>
-              <p className="font-semibold text-slate-300">{testCase.status}</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Status</p>
+              <p className="font-semibold text-primary-600">{testCase.status}</p>
             </div>
           </div>
         </section>
 
         <section className="grid gap-6 lg:grid-cols-2">
-          <article className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-slate-950/40">
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Preconditions</p>
-            <p className="mt-3 text-sm text-slate-200">{testCase.preconditions}</p>
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Preconditions</p>
+            <p className="mt-3 text-sm text-slate-600">{testCase.preconditions}</p>
           </article>
-          <article className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-slate-950/40">
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Expected Result</p>
-            <p className="mt-3 text-sm text-slate-200">{testCase.expectedResult}</p>
+          <article className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Expected Result</p>
+            <p className="mt-3 text-sm text-slate-600">{testCase.expectedResult}</p>
           </article>
         </section>
 
-        <section className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-slate-950/40">
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
           <div className="flex items-center justify-between">
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Steps</p>
-            <span className="text-xs text-slate-400">Updated {testCase.lastUpdated}</span>
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Steps</p>
+            <span className="text-xs text-slate-500">Updated {testCase.lastUpdated}</span>
           </div>
-          <ol className="mt-4 space-y-3 list-decimal pl-5 text-sm text-slate-200">
+          <ol className="mt-4 space-y-3 list-decimal pl-5 text-sm text-slate-600">
             {testCase.steps.map((step) => (
               <li key={step}>{step}</li>
             ))}
@@ -97,19 +97,19 @@ export default function TestCaseDetailPage() {
         </section>
 
         <section className="grid gap-6 lg:grid-cols-[1fr,0.7fr]">
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-slate-950/40">
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Traceability</p>
-            <div className="mt-4 space-y-2 text-sm text-slate-300">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Traceability</p>
+            <div className="mt-4 space-y-2 text-sm text-slate-600">
               <p>Linked features: Booking workflow, Payment routing</p>
               <p>Linked stories: As a shopper, I want promo validation before payment</p>
               <p>Test suite: Smoke – Checkout</p>
             </div>
           </div>
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-slate-950/40">
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Attachments</p>
-            <ul className="mt-4 space-y-2 text-sm text-slate-200">
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Attachments</p>
+            <ul className="mt-4 space-y-2 text-sm text-slate-600">
               {testCase.attachments.map((attachment) => (
-                  <li key={attachment} className="flex items-center justify-between rounded-xl border border-slate-800 bg-slate-950/40 px-4 py-2">
+                  <li key={attachment} className="flex items-center justify-between rounded-xl border border-slate-200 bg-white/70 px-4 py-2">
                     <span>{attachment}</span>
                     <Button variant="outline" size="sm">Download</Button>
                   </li>

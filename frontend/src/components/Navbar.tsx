@@ -5,30 +5,30 @@ import Button from './Button'
 
 export default function Navbar() {
   return (
-    <nav className="border-b border-slate-800 bg-slate-950">
+    <nav className="sticky top-0 z-50 border-b border-slate-200 bg-surface/80 backdrop-blur-md">
       <div className="container mx-auto px-6 lg:px-12 py-4 flex items-center justify-between">
         <div className="flex items-center gap-2 font-bold text-lg">
-          <div className="text-slate-200">
-            <Zap size={24} strokeWidth={1.5} />
+          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-600 text-white">
+            <Zap size={18} strokeWidth={2} />
           </div>
-          <span className="text-white">TestGen AI</span>
+          <span className="text-slate-900">TestGen AI</span>
         </div>
 
         <div className="hidden md:flex items-center gap-8">
-          <a href="#" className="text-slate-100 hover:text-white text-lg">Integrations</a>
-          <a href="#" className="text-slate-100 hover:text-white text-lg">Features</a>
-          <a href="#" className="text-slate-100 hover:text-white text-lg">How it Works</a>
-          <Link href="/pricing" className="text-slate-100 hover:text-white text-lg">Pricing</Link>
+          <a href="#" className="text-slate-600 hover:text-slate-900 text-sm font-medium transition">Integrations</a>
+          <a href="#" className="text-slate-600 hover:text-slate-900 text-sm font-medium transition">Features</a>
+          <a href="#" className="text-slate-600 hover:text-slate-900 text-sm font-medium transition">How it Works</a>
+          <Link href="/pricing" className="text-slate-600 hover:text-slate-900 text-sm font-medium transition">Pricing</Link>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3">
           <Link href="/login">
-            <Button variant="outline" size="sm" className="text-slate-300 hover:text-white">
+            <Button variant="ghost" size="sm">
               Sign In
             </Button>
           </Link>
           <Link href="/register">
-            <Button variant="primary" size="sm" className="bg-white hover:bg-slate-200 text-slate-950 font-semibold px-6 py-2 rounded-full">
+            <Button variant="primary" size="sm">
               Get Started
             </Button>
           </Link>

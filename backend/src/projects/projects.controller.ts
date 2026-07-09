@@ -148,4 +148,30 @@ export class ProjectsController {
     await this.projectsService.deleteProject(id);
     return { message: 'Project deleted successfully' };
   }
+
+  @Post(':id/user-stories')
+  @ApiOperation({ summary: 'Manually add a user story to a project' })
+  @ApiResponse({ status: 201, description: 'User story created' })
+  async createUserStory(@Param('id', ParseIntPipe) id: number, @Body() body: CreateUserStoryDto) {
+    return this.projectsService.createUserStory(id, body);
+  }
+
+  @Patch(':id/user-stories/:storyId')
+  @ApiOperation({ summary: 'Update a user story' })
+  @ApiResponse({ status: 200, description: 'User story updated' })
+  async updateUserStory(
+    @Param('id', ParseIntPipe) id: number,
+    @Param('storyId', ParseIntPipe) storyId: number,
+    @Body() body: UpdateUserStoryDto,
+  ) {
+    return this.projectsService.updateUserStory(id, storyId, body);
+  }
+
+  @Delete(':id/user-stories/:storyId')
+  @ApiOperation({ summary: 'Delete a user story' })
+  @ApiResponse({ status: 200, description: 'User story deleted' })
+  async deleteUserStory(@Param('id', ParseIntPipe) id: number, @Param('storyId', ParseIntPipe) storyId: number) {
+    await this.projectsService.deleteUserStory(id, storyId);
+    return { message: 'User story deleted successfully' };
+  }
 }

@@ -1,6 +1,5 @@
 import React from 'react'
 import { Zap, File, FileJson } from 'lucide-react'
-import Button from './Button'
 
 export default function Integrations() {
   const integrations = [
@@ -26,56 +25,46 @@ export default function Integrations() {
     }
   ]
 
+  const steps = [
+    { num: '01', color: 'text-primary-600', title: 'Import Requirements', desc: 'Paste text, upload PDFs, or connect your Jira/Swagger documentation directly.' },
+    { num: '02', color: 'text-accent', title: 'AI Analysis', desc: 'Our engine parses logic, identifies edge cases, and maps user flows instantly.' },
+    { num: '03', color: 'text-emerald-500', title: 'Export & Sync', desc: 'Download as CSV/Excel or sync created test cases back to your management tool.' },
+  ]
+
   return (
-    <section className="py-24 px-6 lg:px-12 bg-slate-950">
+    <section className="py-24 px-6 lg:px-12 bg-surface">
       <div className="container mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-bold mb-2">Works with your existing docs</h2>
-          <p className="text-slate-400">Upload or connect your source of truth.</p>
+          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2 text-slate-900">Works with your existing docs</h2>
+          <p className="text-slate-500 text-lg">Upload or connect your source of truth.</p>
         </div>
 
-        <div className="flex flex-wrap justify-center gap-6 mb-20">
+        <div className="flex flex-wrap justify-center gap-4 mb-20">
           {integrations.map((integration, idx) => {
             const Icon = integration.icon
             return (
-              <Button key={idx} variant="outline" className="px-6 py-3 bg-slate-900 border border-slate-800 rounded-lg hover:bg-slate-800 transition flex items-center gap-2 text-white">
-                <Icon size={20} className="text-slate-200" />
-                <span className="font-semibold">{integration.name}</span>
-              </Button>
+              <div key={idx} className="px-5 py-3 bg-white border border-slate-200 rounded-xl shadow-soft hover:shadow-card hover:border-slate-300 transition flex items-center gap-2">
+                <Icon size={18} className="text-primary-600" />
+                <span className="font-semibold text-sm text-slate-700">{integration.name}</span>
+              </div>
             )
           })}
         </div>
 
         <div className="text-center">
-          <h3 className="text-3xl md:text-4xl font-bold mb-16">How it works</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            <div className="bg-slate-900 border border-slate-800 rounded-lg p-8">
-              <div className="text-6xl font-bold text-slate-700 mb-4">01</div>
-              <div className="flex justify-center mb-4">
-                <Zap className="text-slate-200" size={40} strokeWidth={1.5} />
-              </div>
-              <h4 className="text-xl font-bold mb-2">Import Requirements</h4>
-              <p className="text-slate-400">Paste text, upload PDFs, or connect your Jira/Swagger documentation directly.</p>
-            </div>
+          <h3 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-16 text-slate-900">How it works</h3>
 
-            <div className="bg-slate-900 border border-slate-800 rounded-lg p-8">
-              <div className="text-6xl font-bold text-slate-700 mb-4">02</div>
-              <div className="flex justify-center mb-4">
-                <Zap className="text-slate-400" size={40} strokeWidth={1.5} />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {steps.map((step) => (
+              <div key={step.num} className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-left">
+                <div className="text-6xl font-extrabold text-slate-200 mb-4">{step.num}</div>
+                <div className={`mb-4 ${step.color}`}>
+                  <Zap size={32} strokeWidth={1.5} />
+                </div>
+                <h4 className="text-xl font-bold mb-2 text-slate-900">{step.title}</h4>
+                <p className="text-slate-500">{step.desc}</p>
               </div>
-              <h4 className="text-xl font-bold mb-2">AI Analysis</h4>
-              <p className="text-slate-400">Our engine parses logic, identifies edge cases, and maps user flows instantly.</p>
-            </div>
-
-            <div className="bg-slate-900 border border-slate-800 rounded-lg p-8">
-              <div className="text-6xl font-bold text-slate-700 mb-4">03</div>
-              <div className="flex justify-center mb-4">
-                <Zap className="text-slate-400" size={40} strokeWidth={1.5} />
-              </div>
-              <h4 className="text-xl font-bold mb-2">Export & Sync</h4>
-              <p className="text-slate-400">Download as CSV/Excel or sync created test cases back to your management tool.</p>
-            </div>
+            ))}
           </div>
         </div>
       </div>

@@ -1,5 +1,7 @@
-import { Module } from '@nestjs/common';
+import { Logger, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import fs from 'fs';
+import dotenv from 'dotenv';
 import path from 'path';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { AppController } from './app.controller';
@@ -13,12 +15,23 @@ import { ProjectsModule } from './projects/projects.module';
 import { TeamModule } from './team/team.module';
 import { TeamMember } from './team/entities/team-member.entity';
 
+const envCandidates = [
+  path.resolve(process.cwd(), '.env'),
+  path.resolve(process.cwd(), 'backend/.env'),
+  path.resolve(__dirname, '../.env'),
+  path.resolve(__dirname, '../../.env'),
+];
+
+const loadedEnvPath = envCandidates.find((candidate) => fs.existsSync(candidate));
+
+if (loadedEnvPath) {
+  dotenv.config({ path: loadedEnvPath, override: true });
+  console.log(`[env] loaded ${loadedEnvPath}`);
+}
+
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: path.resolve(__dirname, '../.env'),
-    }),
+    ConfigModule.forRoot({ isGlobal: true }),
 
     // TypeORM / Postgres configuration. Uses DATABASE_URL if provided,
     // otherwise falls back to individual env vars. `autoLoadEntities`
@@ -27,12 +40,33 @@ import { TeamMember } from './team/entities/team-member.entity';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => {
-        const databaseUrl = configService.get<string>('DATABASE_URL');
+        const logger = new Logger('DatabaseConfig');
+        const databaseUrl = process.env.DATABASE_URL || configService.get<string>('DATABASE_URL');
         const isProd = configService.get<string>('NODE_ENV') === 'production';
+        const sslSetting = configService.get<string>('DB_SSL');
+        const sslRejectUnauthorized = configService.get<string>('DB_SSL_REJECT_UNAUTHORIZED');
+        const ssl =
+          sslSetting === 'true'
+            ? { rejectUnauthorized: sslRejectUnauthorized !== 'false' }
+            : sslSetting === 'false'
+              ? false
+              : undefined;
+
+        logger.log(databaseUrl ? 'Using DATABASE_URL' : 'Using DB_* variables');
+
+        if (databaseUrl) {
+          return {
+            type: 'postgres',
+            url: databaseUrl,
+            synchronize: !isProd,
+            logging: !isProd,
+            autoLoadEntities: true,
+            ...(ssl !== undefined ? { ssl } : {}),
+          } as any;
+        }
 
         return {
           type: 'postgres',
-          url: databaseUrl || undefined,
           host: configService.get<string>('DB_HOST') || undefined,
           port: configService.get<number>('DB_PORT') ? Number(configService.get<number>('DB_PORT')) : undefined,
           username: configService.get<string>('DB_USER') || undefined,
@@ -41,7 +75,7 @@ import { TeamMember } from './team/entities/team-member.entity';
           synchronize: !isProd, // enable in dev, disable in production
           logging: !isProd,
           autoLoadEntities: true,
-          ssl: isProd ? { rejectUnauthorized: false } : false,
+          ...(ssl !== undefined ? { ssl } : {}),
         } as any;
       },
     }),

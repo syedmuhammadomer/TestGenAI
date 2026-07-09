@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react'
 import { useRouter } from 'next/router'
-import { Mail, Lock, AlertCircle, CheckCircle } from 'lucide-react'
+import { Mail, Lock, AlertCircle, CheckCircle, Zap } from 'lucide-react'
 import { useLoginForm } from '@/hooks/useLoginForm'
 import Link from 'next/link'
 import Button from '@/components/Button'
@@ -32,47 +32,45 @@ export default function Login() {
   }, [submitted, router])
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-    }}>
+    <div className="min-h-screen flex items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-md">
         {/* Login Card */}
-        <div className="border border-slate-700 rounded-2xl p-8" style={{
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%)',
-          backdropFilter: 'blur(10px)'
-        }}>
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-elevated">
           {/* Header */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-bold text-white mb-2">Login</h1>
-            <p className="text-slate-400">Welcome back to TestGen AI</p>
+          <div className="mb-8 text-center">
+            <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600 text-white mb-4">
+              <Zap size={20} />
+            </div>
+            <h1 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h1>
+            <p className="text-slate-500">Log in to continue to TestGen AI</p>
           </div>
 
           {/* Success Message */}
           {submitted && (
-            <div className="mb-6 p-4 bg-slate-500/10 border border-slate-500/50 rounded-lg flex items-center gap-2">
-              <CheckCircle size={20} className="text-slate-500" />
-              <span className="text-slate-400 text-sm">Login successful!</span>
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
+              <CheckCircle size={20} className="text-emerald-500" />
+              <span className="text-emerald-700 text-sm">Login successful!</span>
             </div>
           )}
 
           {/* Auth Error Message */}
           {authError && (
-            <div className="mb-6 p-4 bg-slate-500/10 border border-slate-500/50 rounded-lg flex items-center gap-2">
-              <AlertCircle size={20} className="text-slate-500" />
-              <span className="text-slate-400 text-sm">{authError}</span>
+            <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2">
+              <AlertCircle size={20} className="text-rose-500" />
+              <span className="text-rose-700 text-sm">{authError}</span>
             </div>
           )}
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-white mb-2">
+              <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-2">
                 Email Address
               </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400">
-                  <Mail size={20} />
+                  <Mail size={18} />
                 </div>
                 <input
                   id="email"
@@ -84,19 +82,19 @@ export default function Login() {
                   disabled={loading}
                   className={`w-full pl-10 pr-4 py-3 rounded-lg border transition outline-none ${
                     touched.email && errors.email
-                      ? 'border-slate-500 bg-slate-500/5 text-white placeholder-slate-500'
-                      : 'border-slate-600 bg-slate-900/50 text-white placeholder-slate-500 hover:border-slate-500 focus:border-white'
+                      ? 'border-rose-400 bg-rose-50 text-slate-900 placeholder-slate-400'
+                      : 'border-slate-200 bg-white text-slate-900 placeholder-slate-400 hover:border-slate-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-100'
                   } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 />
               </div>
               {touched.email && errors.email && (
-                <div className="mt-2 flex items-center gap-1 text-slate-400 text-sm">
+                <div className="mt-2 flex items-center gap-1 text-rose-600 text-sm">
                   <AlertCircle size={16} />
                   {errors.email}
                 </div>
               )}
               {touched.email && !errors.email && email && (
-                <div className="mt-2 flex items-center gap-1 text-slate-400 text-sm">
+                <div className="mt-2 flex items-center gap-1 text-emerald-600 text-sm">
                   <CheckCircle size={16} />
                   Email is valid
                 </div>
@@ -105,12 +103,12 @@ export default function Login() {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-white mb-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-2">
                 Password
               </label>
               <div className="relative">
                 <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400">
-                  <Lock size={20} />
+                  <Lock size={18} />
                 </div>
                 <input
                   id="password"
@@ -122,19 +120,19 @@ export default function Login() {
                   disabled={loading}
                   className={`w-full pl-10 pr-4 py-3 rounded-lg border transition outline-none ${
                     touched.password && errors.password
-                      ? 'border-slate-500 bg-slate-500/5 text-white placeholder-slate-500'
-                      : 'border-slate-600 bg-slate-900/50 text-white placeholder-slate-500 hover:border-slate-500 focus:border-white'
+                      ? 'border-rose-400 bg-rose-50 text-slate-900 placeholder-slate-400'
+                      : 'border-slate-200 bg-white text-slate-900 placeholder-slate-400 hover:border-slate-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-100'
                   } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 />
               </div>
               {touched.password && errors.password && (
-                <div className="mt-2 flex items-center gap-1 text-slate-400 text-sm">
+                <div className="mt-2 flex items-center gap-1 text-rose-600 text-sm">
                   <AlertCircle size={16} />
                   {errors.password}
                 </div>
               )}
               {touched.password && !errors.password && password && (
-                <div className="mt-2 flex items-center gap-1 text-slate-400 text-sm">
+                <div className="mt-2 flex items-center gap-1 text-emerald-600 text-sm">
                   <CheckCircle size={16} />
                   Password is valid
                 </div>
@@ -145,19 +143,16 @@ export default function Login() {
             <Button
               type="submit"
               isLoading={loading}
-              className="w-full mt-8"
-              style={{
-                background: 'linear-gradient(135deg, #000000 0%, #18181b 100%)'
-              }}
+              className="w-full mt-2"
             >
               {loading ? 'Logging in...' : 'Login'}
             </Button>
 
             {/* Sign Up Link */}
             <div className="text-center mt-6">
-              <span className="app-subtext">
+              <span className="text-slate-500 text-sm">
                 Don&apos;t have an account?{' '}
-                <Link href="/register" className="text-slate-200 hover:text-slate-300 font-semibold">
+                <Link href="/register" className="text-primary-600 hover:text-primary-700 font-semibold">
                   Sign up
                 </Link>
               </span>

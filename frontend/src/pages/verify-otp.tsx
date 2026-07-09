@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/router'                                          
+import { useRouter } from 'next/router'
 import { CheckCircle, AlertCircle, Mail } from 'lucide-react'
 import { authService } from '@/services/authService'
 import Button from '@/components/Button'
@@ -89,32 +89,27 @@ export default function VerifyOtp() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4" style={{
-      background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)'
-    }}>
+    <div className="min-h-screen flex items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-md">
-        <div className="border border-slate-700 rounded-2xl p-8" style={{
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%)',
-          backdropFilter: 'blur(10px)'
-        }}>
+        <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-elevated">
           {/* Header */}
           <div className="mb-8 text-center">
-            <div className="w-16 h-16 bg-white/10 border border-white/20 rounded-full flex items-center justify-center mx-auto mb-4">
-              <Mail className="w-8 h-8 text-slate-200" />
+            <div className="w-14 h-14 bg-primary-50 border border-primary-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Mail className="w-6 h-6 text-primary-600" />
             </div>
-            <h1 className="text-3xl font-bold text-white mb-2">Verify your email</h1>
-            <p className="app-subtext mb-1">We sent a 6-digit code to</p>
-            <p className="text-slate-200 font-medium">{email || 'your email address'}</p>
+            <h1 className="text-2xl font-bold text-slate-900 mb-1">Verify your email</h1>
+            <p className="text-slate-500 text-sm mb-1">We sent a 6-digit code to</p>
+            <p className="text-slate-800 font-medium">{email || 'your email address'}</p>
           </div>
 
           {/* Error/Info Messages */}
           {error && (
-            <div className="mb-6 p-4 bg-slate-500/10 border border-slate-500/50 rounded-lg flex items-center gap-2 text-sm text-slate-400">
+            <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2 text-sm text-rose-700">
               <AlertCircle size={16} /> {error}
             </div>
           )}
           {info && (
-            <div className="mb-6 p-4 bg-slate-500/10 border border-slate-500/50 rounded-lg flex items-center gap-2 text-sm text-slate-400">
+            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2 text-sm text-emerald-700">
               <CheckCircle size={16} /> {info}
             </div>
           )}
@@ -122,7 +117,7 @@ export default function VerifyOtp() {
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* OTP Input Boxes */}
             <div>
-              <label className="block text-sm font-semibold text-white mb-4 text-center">Enter verification code</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-4 text-center">Enter verification code</label>
               <div className="flex justify-center gap-2">
                 {otp.map((digit, index) => (
                   <input
@@ -135,10 +130,9 @@ export default function VerifyOtp() {
                     onKeyDown={(e) => handleKeyDown(index, e)}
                     maxLength={1}
                     disabled={loading}
-                    className="w-12 h-12 text-center text-xl font-bold border-2 rounded-lg bg-slate-900/50 text-white outline-none transition-all duration-200 focus:border-slate-200 focus:bg-slate-800 hover:border-slate-500 disabled:opacity-50 disabled:cursor-not-allowed"
-                    style={{
-                      borderColor: digit ? '#ffffff' : '#475569',
-                    }}
+                    className={`w-12 h-12 text-center text-xl font-bold border-2 rounded-lg bg-white text-slate-900 outline-none transition-all duration-200 focus:border-primary-500 focus:ring-2 focus:ring-primary-100 hover:border-slate-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                      digit ? 'border-primary-400' : 'border-slate-200'
+                    }`}
                   />
                 ))}
               </div>
@@ -149,24 +143,23 @@ export default function VerifyOtp() {
               type="submit"
               isLoading={loading}
               className="w-full"
-              style={{ background: 'linear-gradient(135deg, #000000 0%, #18181b 100%)' }}
             >
               {loading ? 'Verifying...' : 'Verify & continue'}
             </Button>
 
             {/* Footer */}
-            <div className="flex justify-between items-center app-subtext">
+            <div className="flex justify-between items-center text-sm">
               <Button
                 type="button"
                 onClick={handleResend}
                 disabled={loading}
-                variant="outline"
+                variant="ghost"
                 size="sm"
-                className="text-slate-300 hover:text-slate-300 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+                className="!text-primary-600 hover:!text-primary-700 font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Resend code
               </Button>
-              <Link href="/login" className="text-slate-400 hover:text-slate-300">
+              <Link href="/login" className="text-slate-500 hover:text-slate-700">
                 Back to login
               </Link>
             </div>

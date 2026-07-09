@@ -11,6 +11,9 @@ export interface User {
   accessPreset?: string
   permissions?: string[]
   createdAt?: string
+  firstName?: string
+  lastName?: string
+  role?: 'admin' | 'member'
 }
 
 // Auth types

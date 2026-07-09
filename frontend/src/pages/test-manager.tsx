@@ -6,9 +6,6 @@ import Layout from '@/components/Layout'
 import Button from '@/components/Button'
 import { Filter, Settings, ClipboardList } from 'lucide-react'
 import { useProjectContext } from '@/context/ProjectContext'
-import { User } from '@/types'
-import { hasPermission } from '@/utils/access'
-import PageLoading from '@/components/PageLoading'
 
 type ModalMode = 'view' | 'edit' | 'create'
 
@@ -26,32 +23,31 @@ type TestCase = {
 }
 
 const statusColors: Record<string, string> = {
-  Passed: 'bg-slate-500/10 text-slate-300',
-  Failed: 'bg-slate-500/10 text-slate-300',
-  'In Progress': 'bg-white/10 text-slate-300',
-  'Not Started': 'bg-slate-800 text-slate-300',
+  Passed: 'bg-emerald-50 text-emerald-600',
+  Failed: 'bg-rose-50 text-rose-600',
+  'In Progress': 'bg-primary-50 text-primary-600',
+  'Not Started': 'bg-slate-100 text-slate-600',
 }
 
 const priorityColors: Record<string, string> = {
-  Critical: 'bg-slate-500/10 text-slate-300',
-  High: 'bg-slate-400/10 text-slate-300',
-  Medium: 'bg-slate-500/10 text-slate-300',
-  Low: 'bg-slate-800 text-slate-300',
+  Critical: 'bg-rose-50 text-rose-600',
+  High: 'bg-orange-50 text-orange-600',
+  Medium: 'bg-amber-50 text-amber-600',
+  Low: 'bg-slate-100 text-slate-600',
 }
 
 const badgeBase = 'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em]'
 
 const renderBadge = (value: string, map?: Record<string, string>) => (
-  <span className={`${badgeBase} ${map?.[value] ?? 'bg-slate-700 text-slate-200'}`}>{value}</span>
+  <span className={`${badgeBase} ${map?.[value] ?? 'bg-slate-200 text-slate-600'}`}>{value}</span>
 )
 
 export default function TestManagerPage() {
   const router = useRouter()
-  const { selectedProject, loading: projectsLoading } = useProjectContext()
+  const { selectedProject } = useProjectContext()
   const [filter, setFilter] = useState<string>('All Status')
   const [loading, setLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
-  const [user, setUser] = useState<User | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem('authToken')
@@ -59,12 +55,8 @@ export default function TestManagerPage() {
       router.push('/login')
       return
     }
-    const storedUser = localStorage.getItem('userData')
-    setUser(storedUser ? (JSON.parse(storedUser) as User) : null)
     setLoading(false)
   }, [router])
-
-  const canCreateTestCases = hasPermission(user, 'test_cases:create')
 
   const testCases = useMemo<TestCase[]>(() => {
     if (!selectedProject) return []
@@ -152,8 +144,12 @@ export default function TestManagerPage() {
     setModalTestCase(null)
   }
 
-  if (loading || projectsLoading) {
-    return <PageLoading kind="board" />
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="text-primary-600 text-lg">Loading...</div>
+      </div>
+    )
   }
 
   const renderModalBody = () => {
@@ -161,11 +157,11 @@ export default function TestManagerPage() {
 
     const renderHeader = (label: string, value: string, badgeMap?: Record<string, string>) => (
       <div>
-        <p className="text-xs uppercase tracking-[0.4em] text-slate-500">{label}</p>
+        <p className="text-xs uppercase tracking-[0.4em] text-slate-400">{label}</p>
         {badgeMap ? (
           renderBadge(value, badgeMap)
         ) : (
-          <p className="text-lg font-semibold text-white">{value}</p>
+          <p className="text-lg font-semibold text-slate-900">{value}</p>
         )}
       </div>
     )
@@ -182,21 +178,21 @@ export default function TestManagerPage() {
             {renderHeader('Status', modalTestCase.status, statusColors)}
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
-            <article className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Preconditions</p>
-              <p className="mt-2 text-sm text-slate-200">{modalTestCase.preconditions ?? 'Not specified'}</p>
+            <article className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Preconditions</p>
+              <p className="mt-2 text-sm text-slate-600">{modalTestCase.preconditions ?? 'Not specified'}</p>
             </article>
-            <article className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Expected Result</p>
-              <p className="mt-2 text-sm text-slate-200">{modalTestCase.expectedResult ?? 'Not specified'}</p>
+            <article className="rounded-2xl border border-slate-200 bg-white p-4">
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Expected Result</p>
+              <p className="mt-2 text-sm text-slate-600">{modalTestCase.expectedResult ?? 'Not specified'}</p>
             </article>
           </div>
           <section className="space-y-2">
             <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Steps</p>
-              <span className="text-xs text-slate-500">Updated {modalTestCase.updated}</span>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Steps</p>
+              <span className="text-xs text-slate-400">Updated {modalTestCase.updated}</span>
             </div>
-            <ol className="space-y-2 pl-4 text-sm leading-relaxed text-slate-200">
+            <ol className="space-y-2 pl-4 text-sm leading-relaxed text-slate-600">
               {steps.length > 0 ? (
                 steps.map((step) => <li key={step}>{step}</li>)
               ) : (
@@ -216,30 +212,30 @@ export default function TestManagerPage() {
       return (
         <div className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Title</span>
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Title</span>
               <input
                 value={editForm.title}
                 onChange={(e) => handleEditChange('title', e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               />
             </label>
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Scenario</span>
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Scenario</span>
               <input
                 value={editForm.scenario}
                 onChange={(e) => handleEditChange('scenario', e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               />
             </label>
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Priority</span>
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Priority</span>
               <select
                 value={editForm.priority}
                 onChange={(e) => handleEditChange('priority', e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               >
                 <option>Critical</option>
                 <option>High</option>
@@ -247,12 +243,12 @@ export default function TestManagerPage() {
                 <option>Low</option>
               </select>
             </label>
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Status</span>
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Status</span>
               <select
                 value={editForm.status}
                 onChange={(e) => handleEditChange('status', e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               >
                 <option>Passed</option>
                 <option>Failed</option>
@@ -265,31 +261,31 @@ export default function TestManagerPage() {
             {renderBadge(editForm.priority, priorityColors)}
             {renderBadge(editForm.status, statusColors)}
           </div>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Preconditions</span>
+          <label className="block space-y-2 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Preconditions</span>
             <textarea
               value={editForm.preconditions}
               onChange={(e) => handleEditChange('preconditions', e.target.value)}
               rows={3}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
             />
           </label>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Expected Result</span>
+          <label className="block space-y-2 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Expected Result</span>
             <textarea
               value={editForm.expectedResult}
               onChange={(e) => handleEditChange('expectedResult', e.target.value)}
               rows={3}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
             />
           </label>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Steps</span>
+          <label className="block space-y-2 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Steps</span>
             <textarea
               value={editForm.steps}
               onChange={(e) => handleEditChange('steps', e.target.value)}
               rows={4}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
             />
           </label>
           <div className="flex justify-end gap-3">
@@ -304,38 +300,38 @@ export default function TestManagerPage() {
       return (
         <div className="space-y-6">
           <div className="grid gap-6 lg:grid-cols-2">
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Title</span>
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Title</span>
               <input
                 value={createForm.title}
                 onChange={(e) => handleCreateChange('title', e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               />
             </label>
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Requirement</span>
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Requirement</span>
               <input
                 value={createForm.requirement}
                 onChange={(e) => handleCreateChange('requirement', e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               />
             </label>
           </div>
           <div className="grid gap-6 lg:grid-cols-2">
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Scenario</span>
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Scenario</span>
               <input
                 value={createForm.scenario}
                 onChange={(e) => handleCreateChange('scenario', e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               />
             </label>
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Priority</span>
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Priority</span>
               <select
                 value={createForm.priority}
                 onChange={(e) => handleCreateChange('priority', e.target.value)}
-                className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
               >
                 <option>Critical</option>
                 <option>High</option>
@@ -344,12 +340,12 @@ export default function TestManagerPage() {
               </select>
             </label>
           </div>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Status</span>
+          <label className="block space-y-2 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Status</span>
             <select
               value={createForm.status}
               onChange={(e) => handleCreateChange('status', e.target.value)}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
             >
               <option>Passed</option>
               <option>Failed</option>
@@ -361,31 +357,31 @@ export default function TestManagerPage() {
             {renderBadge(createForm.priority, priorityColors)}
             {renderBadge(createForm.status, statusColors)}
           </div>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Preconditions</span>
+          <label className="block space-y-2 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Preconditions</span>
             <textarea
               value={createForm.preconditions}
               onChange={(e) => handleCreateChange('preconditions', e.target.value)}
               rows={3}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
             />
           </label>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Expected Result</span>
+          <label className="block space-y-2 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Expected Result</span>
             <textarea
               value={createForm.expectedResult}
               onChange={(e) => handleCreateChange('expectedResult', e.target.value)}
               rows={3}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
             />
           </label>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-500">Steps</span>
+          <label className="block space-y-2 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Steps</span>
             <textarea
               value={createForm.steps}
               onChange={(e) => handleCreateChange('steps', e.target.value)}
               rows={4}
-              className="w-full rounded-2xl border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:ring-2 focus:ring-white/30"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
             />
           </label>
           <div className="flex justify-end gap-3">
@@ -404,9 +400,9 @@ export default function TestManagerPage() {
       <div className="p-6 space-y-6">
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Quality Ops</p>
-            <h1 className="text-3xl font-semibold text-white">Test Case Manager</h1>
-            <p className="app-subtext max-w-2xl">
+            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Quality Ops</p>
+            <h1 className="text-3xl font-semibold text-slate-900">Test Case Manager</h1>
+            <p className="text-sm text-slate-500 max-w-2xl">
               Organize, filter, and batch manage all generated test cases with clarity and productivity insights.
             </p>
           </div>
@@ -415,12 +411,10 @@ export default function TestManagerPage() {
               <Filter className="mr-2 h-4 w-4" />
               Filters
             </Button>
-            {canCreateTestCases ? (
-              <Button size="md" onClick={handleOpenCreate}>
-                <ClipboardList className="mr-2 h-4 w-4" />
-                New Test Case
-              </Button>
-            ) : null}
+            <Button size="md" onClick={handleOpenCreate}>
+              <ClipboardList className="mr-2 h-4 w-4" />
+              New Test Case
+            </Button>
           </div>
         </header>
 
@@ -431,29 +425,29 @@ export default function TestManagerPage() {
             { label: 'Failed', value: stats.failed },
             { label: 'In Progress', value: stats.inProgress },
           ].map((kpi) => (
-            <article key={kpi.label} className="rounded-2xl border border-slate-800 bg-slate-900/60 p-5 shadow-sm">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">{kpi.label}</p>
-              <p className="text-3xl font-semibold text-white">{kpi.value}</p>
+            <article key={kpi.label} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">{kpi.label}</p>
+              <p className="text-3xl font-semibold text-slate-900">{kpi.value}</p>
             </article>
           ))}
         </section>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-6 shadow-lg shadow-slate-950/40">
+        <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft">
           <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div className="flex flex-col gap-1">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Search & filter</p>
+              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Search & filter</p>
               <input
                 placeholder="Search test cases, requirements…"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                className="rounded-full border border-slate-800 bg-slate-950/50 px-4 py-2 text-sm text-slate-200 focus:border-white focus:outline-none focus:ring-2 focus:ring-white/20"
+                className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-600 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/15"
               />
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-200">
+            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-600">
               <select
                 value={filter}
                 onChange={(e) => setFilter(e.target.value)}
-                className="rounded-full border border-slate-800 bg-slate-950/60 px-4 py-2 text-sm text-slate-200"
+                className="rounded-full border border-slate-200 bg-white/80 px-4 py-2 text-sm text-slate-600"
               >
                 <option>All Status</option>
                 <option>Passed</option>
@@ -470,13 +464,13 @@ export default function TestManagerPage() {
 
           <div className="mt-6 overflow-x-auto">
             {!selectedProject && (
-              <div className="rounded-xl border border-slate-800 bg-slate-950/40 p-6 app-subtext">
+              <div className="rounded-xl border border-slate-200 bg-white/70 p-6 text-sm text-slate-500">
                 Select a project from the dropdown next to the logo to view its test cases.
               </div>
             )}
-            <table className="w-full text-left text-sm text-slate-300">
+            <table className="w-full text-left text-sm text-slate-600">
               <thead>
-                <tr className="text-xs uppercase tracking-[0.4em] text-slate-500">
+                <tr className="text-xs uppercase tracking-[0.4em] text-slate-400">
                   <th className="px-4 py-3">ID</th>
                   <th className="px-4 py-3">Title</th>
                   <th className="px-4 py-3">Requirement</th>
@@ -488,8 +482,8 @@ export default function TestManagerPage() {
               </thead>
               <tbody>
                 {selectedProject && filtered.length === 0 && (
-                  <tr className="border-t border-slate-800">
-                    <td colSpan={7} className="px-4 py-6 text-center text-slate-500">
+                  <tr className="border-t border-slate-200">
+                    <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
                       No test cases found for this project.
                     </td>
                   </tr>
@@ -497,18 +491,18 @@ export default function TestManagerPage() {
                 {filtered.map((testCase) => (
                   <tr
                     key={testCase.id}
-                    className="border-t border-slate-800 hover:bg-slate-950/40 cursor-pointer"
+                    className="border-t border-slate-200 hover:bg-white/70 cursor-pointer"
                     onClick={() => {
                       setModalTestCase(testCase)
                       setModalMode('view')
                     }}
                   >
-                    <td className="px-4 py-3 font-semibold text-white">{testCase.id}</td>
+                    <td className="px-4 py-3 font-semibold text-slate-900">{testCase.id}</td>
                     <td className="px-4 py-3">{testCase.title}</td>
                     <td className="px-4 py-3">{testCase.requirement}</td>
                     <td className="px-4 py-3">{testCase.scenario}</td>
                     <td className="px-4 py-3">
-                      <span className="rounded-full border border-slate-800 bg-slate-950 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-300">
+                      <span className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-600">
                         {testCase.priority}
                       </span>
                     </td>
@@ -517,7 +511,7 @@ export default function TestManagerPage() {
                         {testCase.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-500">{testCase.updated}</td>
+                    <td className="px-4 py-3 text-slate-400">{testCase.updated}</td>
                   </tr>
                 ))}
               </tbody>
@@ -525,23 +519,21 @@ export default function TestManagerPage() {
           </div>
         </div>
         {modalMode && (
-          <div className="fixed inset-0 z-50 overflow-y-auto bg-black/60 p-4">
-            <div className="flex min-h-full items-start justify-center py-6">
-            <div className="w-full max-w-4xl rounded-2xl border border-slate-800 bg-slate-950/90 p-6 shadow-2xl min-h-[520px]">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+            <div className="w-full max-w-4xl rounded-2xl border border-slate-200 bg-white/95 p-6 shadow-2xl min-h-[520px] max-h-[86vh]">
               <div className="mb-4 flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.4em] text-slate-500">Test Case</p>
+                <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Test Case</p>
                 <button
-                  className="text-slate-400 transition hover:text-white"
+                  className="text-slate-500 transition hover:text-slate-900"
                   onClick={closeModal}
                   aria-label="Close modal"
                 >
                   ×
                 </button>
               </div>
-              <div>
+              <div className="max-h-[76vh] overflow-y-auto pr-2">
                 {renderModalBody()}
               </div>
-            </div>
             </div>
           </div>
         )}

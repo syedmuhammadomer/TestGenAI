@@ -8,7 +8,7 @@ import Footer from '../components/Footer'
 
 const Home: NextPage = () => {
   return (
-    <div className="bg-slate-950">
+    <div className="bg-surface">
       <Navbar />
       <Hero />
       <Features />

@@ -86,7 +86,7 @@ export default function Pricing() {
   const selectedProject = projects.find((project) => project.id === selectedProjectId) ?? projects[0]
 
   return (
-    <div className="min-h-screen bg-slate-950">
+    <div className="min-h-screen bg-surface">
       <Navbar />
 
       {/* Hero Section */}
@@ -98,20 +98,20 @@ export default function Pricing() {
             transition={{ duration: 0.6 }}
             className="mb-8"
           >
-            <div className="inline-block mb-6 px-6 py-2 bg-gradient-to-r from-black/30 to-slate-900/30 border border-slate-700 rounded-full">
-              <span className="text-slate-200 text-sm font-semibold flex items-center gap-2">
+            <div className="inline-block mb-6 px-4 py-1.5 bg-primary-50 border border-primary-100 rounded-full">
+              <span className="text-primary-700 text-sm font-semibold flex items-center gap-2">
                 <Star size={16} />
                 Choose Your Plan
               </span>
             </div>
 
-            <h1 className="text-5xl md:text-6xl font-bold mb-6 leading-tight">
+            <h1 className="text-5xl md:text-6xl font-extrabold tracking-tight mb-6 leading-tight text-slate-900">
               <span className="gradient-text">Simple, Transparent</span>
               <br />
               Pricing for Everyone
             </h1>
 
-            <p className="text-slate-400 max-w-2xl mx-auto text-lg mb-12">
+            <p className="text-slate-500 max-w-2xl mx-auto text-lg mb-12">
               Choose the perfect plan for your testing needs. All plans include our core AI-powered test generation technology.
             </p>
           </motion.div>
@@ -121,19 +121,19 @@ export default function Pricing() {
       {/* Project dropdown for admin view */}
       <section className="px-6 lg:px-12 -mt-16">
         <div className="container mx-auto">
-          <div className="bg-slate-900/60 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-2xl shadow-white/10">
+          <div className="bg-white border border-slate-200 rounded-2xl p-6 space-y-6 shadow-elevated">
             <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.3em] text-slate-200">Admin project switcher</p>
-                <h3 className="text-2xl font-semibold text-white mt-1">Inspect every project before choosing a plan</h3>
-                <p className="app-subtext">Pick a project to see its coverage, requirements, and team stats right here.</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-600">Admin project switcher</p>
+                <h3 className="text-2xl font-semibold text-slate-900 mt-1">Inspect every project before choosing a plan</h3>
+                <p className="text-slate-500 text-sm">Pick a project to see its coverage, requirements, and team stats right here.</p>
               </div>
               <div className="min-w-[240px]">
-                <label className="block text-xs font-semibold text-slate-400 mb-1">Active project</label>
+                <label className="block text-xs font-semibold text-slate-500 mb-1">Active project</label>
                 <select
                   value={selectedProjectId}
                   onChange={(event) => setSelectedProjectId(event.target.value)}
-                  className="w-full bg-slate-800 border border-slate-700 text-white rounded-2xl py-2 px-4 focus:outline-none focus-visible:border-slate-200"
+                  className="w-full bg-white border border-slate-200 text-slate-900 rounded-xl py-2 px-4 focus:outline-none focus:ring-2 focus:ring-primary-500"
                 >
                   {projects.map((project) => (
                     <option key={project.id} value={project.id}>
@@ -146,20 +146,20 @@ export default function Pricing() {
 
             <div className="grid gap-6 md:grid-cols-3">
               <div className="md:col-span-2 space-y-4">
-                <p className="text-slate-200 text-lg font-medium">{selectedProject?.description}</p>
+                <p className="text-slate-700 text-lg font-medium">{selectedProject?.description}</p>
                 <div className="flex flex-wrap gap-3 items-center">
                   <span className={`px-3 py-1 rounded-full text-xs font-semibold uppercase ${selectedProject?.statusColor}`}>{selectedProject?.status}</span>
-                  <span className="text-xs text-slate-400">Last updated {selectedProject?.date}</span>
+                  <span className="text-xs text-slate-500">Last updated {selectedProject?.date}</span>
                 </div>
                 <div>
-                  <div className="text-xs uppercase tracking-[0.25em] text-slate-500 mb-2">Test coverage</div>
-                  <div className="w-full bg-slate-800/50 h-2 rounded-full">
+                  <div className="text-xs uppercase tracking-[0.2em] text-slate-400 mb-2">Test coverage</div>
+                  <div className="w-full bg-slate-100 h-2 rounded-full">
                     <div
-                      className="h-2 rounded-full bg-gradient-to-r from-black to-slate-800"
+                      className="h-2 rounded-full bg-gradient-to-r from-primary-500 to-accent"
                       style={{ width: `${selectedProject?.coverage ?? 0}%` }}
                     />
                   </div>
-                  <p className="text-xs text-slate-400 mt-1">{selectedProject?.coverage}% coverage so far</p>
+                  <p className="text-xs text-slate-500 mt-1">{selectedProject?.coverage}% coverage so far</p>
                 </div>
               </div>
 
@@ -177,9 +177,9 @@ export default function Pricing() {
                   label: 'Members',
                   value: selectedProject?.members
                 }].map((item) => (
-                  <div key={item.label} className="bg-slate-900/70 border border-slate-800 rounded-2xl p-3">
-                    <p className="text-xs text-slate-400 uppercase tracking-[0.25em] mb-1">{item.label}</p>
-                    <p className="text-2xl font-semibold text-white">{item.value}</p>
+                  <div key={item.label} className="bg-slate-50 border border-slate-200 rounded-xl p-3">
+                    <p className="text-xs text-slate-400 uppercase tracking-[0.2em] mb-1">{item.label}</p>
+                    <p className="text-2xl font-semibold text-slate-900">{item.value}</p>
                   </div>
                 ))}
               </div>
@@ -189,7 +189,7 @@ export default function Pricing() {
       </section>
 
       {/* Pricing Cards */}
-      <section className="pb-24 px-6 lg:px-12">
+      <section className="pb-24 pt-16 px-6 lg:px-12">
         <div className="container mx-auto">
           <motion.div
             className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-7xl mx-auto"
@@ -205,39 +205,33 @@ export default function Pricing() {
                 className={`relative group ${
                   plan.popular
                     ? 'md:scale-105 lg:scale-110'
-                    : 'hover:scale-105'
+                    : ''
                 } transition-all duration-300`}
               >
                 {/* Popular Badge */}
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2 z-10">
-                    <div className="bg-gradient-to-r from-black to-slate-800 text-white px-4 py-2 rounded-full text-sm font-semibold shadow-lg">
+                    <div className="bg-primary-600 text-white px-4 py-1.5 rounded-full text-sm font-semibold shadow-card">
                       Most Popular
                     </div>
                   </div>
                 )}
 
                 {/* Card */}
-                <div className={`relative h-full p-8 rounded-2xl border backdrop-blur-sm transition-all duration-300 ${
+                <div className={`relative h-full p-8 rounded-2xl border transition-all duration-300 ${
                   plan.popular
-                    ? 'bg-gradient-to-br from-black/80 to-slate-900/80 border-white/50 shadow-2xl shadow-black/30'
-                    : 'bg-slate-900/50 border-slate-700 hover:border-slate-600 hover:bg-slate-800/50'
+                    ? 'bg-white border-primary-200 shadow-elevated'
+                    : 'bg-white border-slate-200 shadow-soft hover:shadow-card hover:border-slate-300'
                 }`}>
-
-                  {/* Glow Effect for Popular */}
-                  {plan.popular && (
-                    <div className="absolute inset-0 rounded-2xl bg-gradient-to-br from-black/20 to-slate-900/20 opacity-50"></div>
-                  )}
-
                   <div className="relative z-10">
                     {/* Header */}
                     <div className="text-center mb-8">
-                      <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                      <p className="app-subtext mb-6">{plan.description}</p>
+                      <h3 className="text-2xl font-bold text-slate-900 mb-2">{plan.name}</h3>
+                      <p className="text-slate-500 text-sm mb-6">{plan.description}</p>
 
                       <div className="mb-6">
-                        <span className="text-4xl font-bold text-white">{plan.price}</span>
-                        <span className="text-slate-400 ml-2">/{plan.period}</span>
+                        <span className="text-4xl font-extrabold text-slate-900">{plan.price}</span>
+                        <span className="text-slate-500 ml-2">/{plan.period}</span>
                       </div>
                     </div>
 
@@ -245,15 +239,15 @@ export default function Pricing() {
                     <div className="space-y-4 mb-8">
                       {plan.features.map((feature, featureIndex) => (
                         <div key={featureIndex} className="flex items-start gap-3">
-                          <Check size={18} className="text-slate-400 mt-0.5 flex-shrink-0" />
-                          <span className="text-slate-300 text-sm">{feature}</span>
+                          <Check size={18} className="text-emerald-500 mt-0.5 flex-shrink-0" />
+                          <span className="text-slate-600 text-sm">{feature}</span>
                         </div>
                       ))}
 
                       {plan.limitations.map((limitation, limitIndex) => (
                         <div key={limitIndex} className="flex items-start gap-3 opacity-60">
-                          <div className="w-4 h-4 rounded-full bg-slate-600 mt-0.5 flex-shrink-0"></div>
-                          <span className="app-subtext">{limitation}</span>
+                          <div className="w-4 h-4 rounded-full bg-slate-200 mt-0.5 flex-shrink-0"></div>
+                          <span className="text-slate-500 text-sm">{limitation}</span>
                         </div>
                       ))}
                     </div>
@@ -261,11 +255,7 @@ export default function Pricing() {
                     {/* CTA Button */}
                     <Button
                       variant={plan.buttonVariant}
-                      className={`w-full ${
-                        plan.popular
-                          ? 'bg-gradient-to-r from-black to-slate-800 hover:from-slate-950 hover:to-black text-white font-semibold'
-                          : ''
-                      }`}
+                      className="w-full"
                       size="lg"
                     >
                       {plan.buttonText}
@@ -279,7 +269,7 @@ export default function Pricing() {
       </section>
 
       {/* FAQ Section */}
-      <section className="py-24 px-6 lg:px-12 bg-slate-900/30">
+      <section className="py-24 px-6 lg:px-12 bg-slate-50">
         <div className="container mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -288,13 +278,13 @@ export default function Pricing() {
             viewport={{ once: true }}
             className="text-center mb-16"
           >
-            <h2 className="text-4xl font-bold text-white mb-4">Frequently Asked Questions</h2>
-            <p className="text-slate-400 max-w-2xl mx-auto">
+            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 mb-4">Frequently Asked Questions</h2>
+            <p className="text-slate-500 max-w-2xl mx-auto">
               Got questions? We&apos;ve got answers. Can&apos;t find what you&apos;re looking for? Contact our support team.
             </p>
           </motion.div>
 
-          <div className="max-w-4xl mx-auto space-y-6">
+          <div className="max-w-4xl mx-auto space-y-4">
             {[
               {
                 question: "Can I change my plan at any time?",
@@ -319,10 +309,10 @@ export default function Pricing() {
                 whileInView={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, delay: index * 0.1 }}
                 viewport={{ once: true }}
-                className="bg-slate-800/50 border border-slate-700 rounded-lg p-6"
+                className="bg-white border border-slate-200 rounded-xl p-6 shadow-soft"
               >
-                <h3 className="text-white font-semibold mb-2">{faq.question}</h3>
-                <p className="text-slate-400">{faq.answer}</p>
+                <h3 className="text-slate-900 font-semibold mb-2">{faq.question}</h3>
+                <p className="text-slate-500">{faq.answer}</p>
               </motion.div>
             ))}
           </div>
@@ -330,7 +320,7 @@ export default function Pricing() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 px-6 lg:px-12">
+      <section className="py-24 px-6 lg:px-12 bg-white">
         <div className="container mx-auto text-center">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
@@ -339,26 +329,18 @@ export default function Pricing() {
             viewport={{ once: true }}
             className="max-w-4xl mx-auto"
           >
-            <h2 className="text-4xl font-bold text-white mb-6">
+            <h2 className="text-4xl font-extrabold tracking-tight text-slate-900 mb-6">
               Ready to Transform Your Testing?
             </h2>
-            <p className="text-slate-400 text-lg mb-8">
+            <p className="text-slate-500 text-lg mb-8">
               Join thousands of QA engineers who are saving hours every week with AI-powered test generation.
             </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              <Button
-                variant="primary"
-                size="lg"
-                className="bg-gradient-to-r from-black to-slate-800 hover:from-slate-950 hover:to-black text-white font-semibold px-8 py-4"
-              >
+              <Button variant="primary" size="lg">
                 Start Free Trial
               </Button>
-              <Button
-                variant="outline"
-                size="lg"
-                className="border-slate-600 hover:bg-slate-800 text-white px-8 py-4"
-              >
+              <Button variant="outline" size="lg">
                 Contact Sales
               </Button>
             </div>

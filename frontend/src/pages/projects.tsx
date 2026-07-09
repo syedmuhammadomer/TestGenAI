@@ -7,16 +7,13 @@ import Layout from '@/components/Layout'
 import Projects from '@/components/Projects'
 import Button from '@/components/Button'
 import { config, handleApiError } from '@/utils/config'
-import PageLoading from '@/components/PageLoading'
 
 type ProjectSummary = {
   id: number
   name: string
   status: string
   features?: { title?: string }[]
-  userStories?: { id?: number }[]
   testCases?: { testCaseId?: string }[]
-  progress?: number
   updatedAt?: string
   createdAt?: string
 }
@@ -61,18 +58,22 @@ export default function ProjectsPage() {
   }, [router])
 
   if (loading) {
-    return <PageLoading kind="projects" />
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="text-primary-600 text-lg">Loading...</div>
+      </div>
+    )
   }
 
   return (
     <Layout>
-      <div className="mb-6 app-subtext">
+      <div className="mb-6 text-sm text-slate-500">
         Server status: {serverState === 'ready' ? 'Healthy' : serverState === 'down' ? 'Unavailable' : 'Checking...'}
       </div>
       {actionMessage && (
         <div
           className={`mb-4 text-sm ${
-            actionMessage.type === 'success' ? 'text-slate-300' : 'text-slate-400'
+            actionMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'
           }`}
         >
           {actionMessage.text}
@@ -86,13 +87,13 @@ export default function ProjectsPage() {
         }}
       />
       {deleteModalProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-950 p-6 space-y-6 shadow-2xl">
-            <h3 className="text-xl font-semibold text-white">Confirm Delete</h3>
-            <p className="text-sm text-slate-300">
-              Are you sure you want to delete <span className="font-semibold text-white">{deleteModalProject.name}</span>? This action cannot be undone.
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 space-y-6 shadow-2xl">
+            <h3 className="text-xl font-semibold text-slate-900">Confirm Delete</h3>
+            <p className="text-sm text-slate-600">
+              Are you sure you want to delete <span className="font-semibold text-slate-900">{deleteModalProject.name}</span>? This action cannot be undone.
             </p>
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-800">
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
               <Button
                 variant="outline"
                 onClick={() => setDeleteModalProject(null)}
