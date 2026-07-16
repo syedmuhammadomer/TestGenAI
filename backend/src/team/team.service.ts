@@ -72,17 +72,14 @@ export class TeamService implements OnModuleInit {
       'Just now',
     );
 
-    try {
-      await this.emailService.sendTeamInviteEmail({
-        email: saved.email,
-        fullName: saved.fullName,
-        role: this.roleLabel(saved.role),
-        team: saved.team,
-        project: saved.project,
-      });
-    } catch {
-      // Email failure is non-fatal; the record is already saved
-    }
+    // Fire-and-forget — email failure must not block or delay the API response
+    this.emailService.sendTeamInviteEmail({
+      email: saved.email,
+      fullName: saved.fullName,
+      role: this.roleLabel(saved.role),
+      team: saved.team,
+      project: saved.project,
+    }).catch(() => { /* non-fatal */ });
 
     return saved;
   }
