@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { Mail, Lock, CheckCircle, AlertCircle, User, Cpu, Zap, BarChart3, ShieldCheck, TrendingUp, Eye, EyeOff } from 'lucide-react'
@@ -20,6 +20,13 @@ export default function Register() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [serverError, setServerError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
+
+  // Pre-fill email from invite link query param
+  useEffect(() => {
+    if (router.isReady && router.query.email) {
+      setEmail(decodeURIComponent(router.query.email as string))
+    }
+  }, [router.isReady, router.query.email])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
