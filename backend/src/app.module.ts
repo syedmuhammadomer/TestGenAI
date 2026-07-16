@@ -43,6 +43,8 @@ if (loadedEnvPath) {
         const logger = new Logger('DatabaseConfig');
         const databaseUrl = process.env.DATABASE_URL || configService.get<string>('DATABASE_URL');
         const isProd = configService.get<string>('NODE_ENV') === 'production';
+        const dbSynchronizeEnv = configService.get<string>('DB_SYNCHRONIZE');
+        const synchronize = dbSynchronizeEnv !== undefined ? dbSynchronizeEnv === 'true' : !isProd;
         const sslSetting = configService.get<string>('DB_SSL');
         const sslRejectUnauthorized = configService.get<string>('DB_SSL_REJECT_UNAUTHORIZED');
         const ssl =
@@ -58,7 +60,7 @@ if (loadedEnvPath) {
           return {
             type: 'postgres',
             url: databaseUrl,
-            synchronize: !isProd,
+            synchronize,
             logging: !isProd,
             autoLoadEntities: true,
             ...(ssl !== undefined ? { ssl } : {}),
@@ -72,7 +74,7 @@ if (loadedEnvPath) {
           username: configService.get<string>('DB_USER') || undefined,
           password: configService.get<string>('DB_PASS') || undefined,
           database: configService.get<string>('DB_NAME') || undefined,
-          synchronize: !isProd, // enable in dev, disable in production
+          synchronize,
           logging: !isProd,
           autoLoadEntities: true,
           ...(ssl !== undefined ? { ssl } : {}),
