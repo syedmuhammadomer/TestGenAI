@@ -10,6 +10,7 @@ import {
 import { MemberRole, ModuleKey } from '@/types'
 import { ALL_MODULES, DEFAULT_MODULES_BY_ROLE, MODULE_LABELS, ROLE_LABELS } from '@/utils/access'
 import { teamService, TeamMemberRecord, TeamActivityRecord } from '@/services/teamService'
+import { useProjectContext } from '@/context/ProjectContext'
 
 // ── Role config ────────────────────────────────────────────────────────────────
 const ROLES: MemberRole[] = ['company_admin', 'pm', 'qa_engineer', 'developer', 'designer', 'ba', 'viewer']
@@ -68,6 +69,7 @@ function InviteModal({ onClose, onInvited }: InviteModalProps) {
   const [role, setRole] = useState<MemberRole>('qa_engineer')
   const [project, setProject] = useState('')
   const [modules, setModules] = useState<ModuleKey[]>(DEFAULT_MODULES_BY_ROLE['qa_engineer'])
+  const { projects } = useProjectContext()
   const [sendCopy, setSendCopy] = useState(true)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -114,9 +116,17 @@ function InviteModal({ onClose, onInvited }: InviteModalProps) {
         </div>
         <p className="text-xs text-slate-500">{ROLE_DESCRIPTIONS[role]}</p>
       </div>
-      <FieldRow icon={<Briefcase className="w-4 h-4 text-slate-500" />} label="Assigned Project (optional)">
-        <input type="text" value={project} onChange={(e) => setProject(e.target.value)} placeholder="e.g. Banking App" className={inputCls} />
-      </FieldRow>
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Assigned Project (optional)</label>
+        <div className="relative">
+          <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <select value={project} onChange={(e) => setProject(e.target.value)} className={`${inputCls} appearance-none`}>
+            <option value="">— No project —</option>
+            {projects.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+        </div>
+      </div>
       <ModuleGrid modules={modules} onToggle={toggleModule} label="Module Access" hint="auto-filled by role, customize as needed" />
       <SendToggle value={sendCopy} onChange={setSendCopy} />
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
@@ -138,6 +148,7 @@ function EditMemberModal({ member, onClose, onSaved }: EditModalProps) {
   const [role, setRole] = useState<MemberRole>(member.role)
   const [project, setProject] = useState(member.project ?? '')
   const [modules, setModules] = useState<ModuleKey[]>(member.modules ?? DEFAULT_MODULES_BY_ROLE[member.role])
+  const { projects } = useProjectContext()
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -175,9 +186,17 @@ function EditMemberModal({ member, onClose, onSaved }: EditModalProps) {
         </div>
         <p className="text-xs text-slate-500">{ROLE_DESCRIPTIONS[role]}</p>
       </div>
-      <FieldRow icon={<Briefcase className="w-4 h-4 text-slate-500" />} label="Assigned Project (optional)">
-        <input type="text" value={project} onChange={(e) => setProject(e.target.value)} placeholder="e.g. Banking App" className={inputCls} />
-      </FieldRow>
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Assigned Project (optional)</label>
+        <div className="relative">
+          <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <select value={project} onChange={(e) => setProject(e.target.value)} className={`${inputCls} appearance-none`}>
+            <option value="">— No project —</option>
+            {projects.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+        </div>
+      </div>
       <ModuleGrid modules={modules} onToggle={toggleModule} label="Module Access" hint="customized from role defaults" />
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
         <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
