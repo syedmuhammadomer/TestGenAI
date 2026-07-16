@@ -1,3 +1,26 @@
+// Role types — mirrors backend MemberRole enum
+export type MemberRole =
+  | 'company_admin'
+  | 'pm'
+  | 'qa_engineer'
+  | 'developer'
+  | 'designer'
+  | 'ba'
+  | 'viewer'
+
+export type ModuleKey =
+  | 'dashboard'
+  | 'projects'
+  | 'backlogs'
+  | 'user_stories'
+  | 'test_manager'
+  | 'rtm'
+  | 'documents'
+  | 'analytics'
+  | 'team'
+  | 'settings'
+  | 'billing'
+
 // User types
 export interface User {
   id: string
@@ -5,15 +28,11 @@ export interface User {
   firstName?: string
   lastName?: string
   name?: string
-  role?: string
+  role?: MemberRole
+  modules?: ModuleKey[]
   team?: string
   assignedProject?: string | null
-  accessPreset?: string
-  permissions?: string[]
   createdAt?: string
-  firstName?: string
-  lastName?: string
-  role?: 'admin' | 'member'
 }
 
 // Auth types

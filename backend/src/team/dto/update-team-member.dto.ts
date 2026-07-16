@@ -1,5 +1,5 @@
-import { IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
-import { TeamMemberStatus } from '../entities/team-member.entity';
+import { IsArray, IsEnum, IsOptional, IsString, MaxLength } from 'class-validator';
+import { MemberRole, TeamMemberStatus } from '../entities/team-member.entity';
 
 export class UpdateTeamMemberDto {
   @IsOptional()
@@ -8,9 +8,8 @@ export class UpdateTeamMemberDto {
   fullName?: string;
 
   @IsOptional()
-  @IsString()
-  @MaxLength(100)
-  role?: string;
+  @IsEnum(MemberRole)
+  role?: MemberRole;
 
   @IsOptional()
   @IsString()
@@ -23,8 +22,9 @@ export class UpdateTeamMemberDto {
   project?: string;
 
   @IsOptional()
-  @IsString()
-  accessPreset?: string;
+  @IsArray()
+  @IsString({ each: true })
+  modules?: string[];
 
   @IsOptional()
   @IsEnum(TeamMemberStatus)

@@ -5,7 +5,7 @@ import { EmailService } from '../auth/email.service';
 import { InviteTeamMemberDto } from './dto/invite-team-member.dto';
 import { UpdateTeamMemberDto } from './dto/update-team-member.dto';
 import { TeamActivity } from './entities/team-activity.entity';
-import { TeamMember, TeamMemberStatus } from './entities/team-member.entity';
+import { DEFAULT_MODULES_BY_ROLE, MemberRole, ModuleKey, TeamMember, TeamMemberStatus } from './entities/team-member.entity';
 
 @Injectable()
 export class TeamService implements OnModuleInit {
@@ -25,25 +25,16 @@ export class TeamService implements OnModuleInit {
     const members = await this.teamMemberRepository.find({ order: { createdAt: 'ASC' } });
     const activities = await this.teamActivityRepository.find({ order: { createdAt: 'DESC' }, take: 8 });
     const totalMembers = members.length;
-    const activeNow = members.filter((member) => member.status === TeamMemberStatus.Online).length;
+    const activeNow = members.filter((m) => m.status === TeamMemberStatus.Online).length;
     const avgTestCases =
       totalMembers === 0
         ? 0
-        : Math.round(members.reduce((total, member) => total + member.testCases, 0) / totalMembers);
+        : Math.round(members.reduce((sum, m) => sum + m.testCases, 0) / totalMembers);
 
     return {
-      stats: {
-        totalMembers,
-        activeNow,
-        avgTestCases,
-      },
+      stats: { totalMembers, activeNow, avgTestCases },
       members,
       activity: activities,
-      roles: [
-        { name: 'QA', desc: 'Access dashboard analytics, assigned projects, user stories, test cases, backlogs, and bug reporting tools.' },
-        { name: 'Product Owner', desc: 'Manage projects, backlog priorities, sprint planning, team setup, RTM, and story assignments.' },
-        { name: 'Developer', desc: 'Work inside assigned projects, update delivery status, move tasks across workflow stages, and track implementation progress.' },
-      ],
     };
   }
 
@@ -53,58 +44,90 @@ export class TeamService implements OnModuleInit {
       throw new BadRequestException('A team member with this email already exists.');
     }
 
+    // Use provided modules or fall back to role defaults
+    const modules: ModuleKey[] =
+      dto.modules && dto.modules.length > 0
+        ? (dto.modules as ModuleKey[])
+        : DEFAULT_MODULES_BY_ROLE[dto.role];
+
     const member = this.teamMemberRepository.create({
       fullName: dto.fullName.trim(),
       email: dto.email.toLowerCase().trim(),
-      role: dto.role.trim(),
-      team: dto.team.trim(),
+      role: dto.role,
+      team: dto.team?.trim(),
       project: dto.project?.trim() || undefined,
-      accessPreset: dto.accessPreset,
-      sendCopy: dto.sendCopy,
-      addWelcomeNote: dto.addWelcomeNote,
+      modules,
+      sendCopy: dto.sendCopy ?? false,
+      addWelcomeNote: dto.addWelcomeNote ?? false,
       testCases: 0,
       status: TeamMemberStatus.Invited,
       lastActive: 'Invitation sent just now',
     });
 
-    const savedMember = await this.teamMemberRepository.save(member);
-    await this.logActivity(savedMember.fullName, `invited to ${savedMember.team}${savedMember.project ? ` for ${savedMember.project}` : ''}`, 'Just now');
-    await this.emailService.sendTeamInviteEmail({
-      email: savedMember.email,
-      fullName: savedMember.fullName,
-      role: savedMember.role,
-      team: savedMember.team,
-      project: savedMember.project,
-    });
-    return savedMember;
+    const saved = await this.teamMemberRepository.save(member);
+
+    await this.logActivity(
+      saved.fullName,
+      `invited as ${this.roleLabel(saved.role)}${saved.project ? ` on ${saved.project}` : ''}`,
+      'Just now',
+    );
+
+    try {
+      await this.emailService.sendTeamInviteEmail({
+        email: saved.email,
+        fullName: saved.fullName,
+        role: this.roleLabel(saved.role),
+        team: saved.team,
+        project: saved.project,
+      });
+    } catch {
+      // Email failure is non-fatal; the record is already saved
+    }
+
+    return saved;
   }
 
   async updateMember(id: number, dto: UpdateTeamMemberDto) {
     const member = await this.teamMemberRepository.findOne({ where: { id } });
-    if (!member) {
-      throw new NotFoundException('Team member not found');
-    }
+    if (!member) throw new NotFoundException('Team member not found');
 
     if (dto.fullName !== undefined) member.fullName = dto.fullName.trim();
-    if (dto.role !== undefined) member.role = dto.role.trim();
-    if (dto.team !== undefined) member.team = dto.team.trim();
+    if (dto.role !== undefined) {
+      member.role = dto.role;
+      // When role changes and no explicit modules provided, reset to role defaults
+      if (dto.modules === undefined) {
+        member.modules = DEFAULT_MODULES_BY_ROLE[dto.role];
+      }
+    }
+    if (dto.modules !== undefined) member.modules = dto.modules as ModuleKey[];
+    if (dto.team !== undefined) member.team = dto.team.trim() || undefined;
     if (dto.project !== undefined) member.project = dto.project.trim() || undefined;
-    if (dto.accessPreset !== undefined) member.accessPreset = dto.accessPreset;
     if (dto.status !== undefined) member.status = dto.status;
     if (dto.lastActive !== undefined) member.lastActive = dto.lastActive;
 
     const updated = await this.teamMemberRepository.save(member);
-    await this.logActivity(updated.fullName, 'profile updated in Team Management', 'Just now');
+    await this.logActivity(updated.fullName, 'profile updated', 'Just now');
     return updated;
   }
 
   async deleteMember(id: number) {
     const member = await this.teamMemberRepository.findOne({ where: { id } });
-    if (!member) {
-      throw new NotFoundException('Team member not found');
-    }
+    if (!member) throw new NotFoundException('Team member not found');
     await this.teamMemberRepository.remove(member);
-    await this.logActivity(member.fullName, 'removed from the workspace roster', 'Just now');
+    await this.logActivity(member.fullName, 'removed from the workspace', 'Just now');
+  }
+
+  private roleLabel(role: MemberRole): string {
+    const labels: Record<MemberRole, string> = {
+      [MemberRole.CompanyAdmin]: 'Company Admin',
+      [MemberRole.PM]: 'Project Manager',
+      [MemberRole.QAEngineer]: 'QA Engineer',
+      [MemberRole.Developer]: 'Developer',
+      [MemberRole.Designer]: 'Designer',
+      [MemberRole.BA]: 'Business Analyst',
+      [MemberRole.Viewer]: 'Viewer',
+    };
+    return labels[role] ?? role;
   }
 
   private async logActivity(actor: string, action: string, timeLabel: string) {
@@ -114,19 +137,17 @@ export class TeamService implements OnModuleInit {
 
   private async seedIfEmpty() {
     const count = await this.teamMemberRepository.count();
-    if (count > 0) {
-      return;
-    }
+    if (count > 0) return;
 
     const members = this.teamMemberRepository.create([
       {
         fullName: 'Dana Holloway',
         email: 'dana@project.ai',
-        role: 'QA',
+        role: MemberRole.QAEngineer,
         team: 'Quality Ops',
         project: 'Banking App',
         testCases: 312,
-        accessPreset: 'full',
+        modules: DEFAULT_MODULES_BY_ROLE[MemberRole.QAEngineer],
         sendCopy: true,
         addWelcomeNote: true,
         status: TeamMemberStatus.Online,
@@ -135,11 +156,11 @@ export class TeamService implements OnModuleInit {
       {
         fullName: 'Maya Brooks',
         email: 'maya@project.ai',
-        role: 'Product Owner',
+        role: MemberRole.PM,
         team: 'Quality Ops',
         project: 'Banking App',
         testCases: 244,
-        accessPreset: 'project',
+        modules: DEFAULT_MODULES_BY_ROLE[MemberRole.PM],
         sendCopy: true,
         addWelcomeNote: true,
         status: TeamMemberStatus.Online,
@@ -148,11 +169,11 @@ export class TeamService implements OnModuleInit {
       {
         fullName: 'Marcus Li',
         email: 'marcus@project.ai',
-        role: 'QA',
+        role: MemberRole.QAEngineer,
         team: 'Quality Ops',
         project: 'Healthcare Portal',
         testCases: 198,
-        accessPreset: 'project',
+        modules: DEFAULT_MODULES_BY_ROLE[MemberRole.QAEngineer],
         sendCopy: true,
         addWelcomeNote: true,
         status: TeamMemberStatus.Online,
@@ -161,11 +182,11 @@ export class TeamService implements OnModuleInit {
       {
         fullName: 'Priya Singh',
         email: 'priya@project.ai',
-        role: 'Developer',
+        role: MemberRole.Developer,
         team: 'Automation Guild',
         project: 'Inventory Portal',
         testCases: 176,
-        accessPreset: 'project',
+        modules: DEFAULT_MODULES_BY_ROLE[MemberRole.Developer],
         sendCopy: false,
         addWelcomeNote: true,
         status: TeamMemberStatus.Offline,

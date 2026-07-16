@@ -35,17 +35,17 @@ export default function Integrations() {
     <section className="py-24 px-6 lg:px-12 bg-surface">
       <div className="container mx-auto">
         <div className="text-center mb-16">
-          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2 text-slate-900">Works with your existing docs</h2>
-          <p className="text-slate-500 text-lg">Upload or connect your source of truth.</p>
+          <h2 className="text-4xl md:text-5xl font-extrabold tracking-tight mb-2 text-white">Works with your existing docs</h2>
+          <p className="text-slate-400 text-lg">Upload or connect your source of truth.</p>
         </div>
 
         <div className="flex flex-wrap justify-center gap-4 mb-20">
           {integrations.map((integration, idx) => {
             const Icon = integration.icon
             return (
-              <div key={idx} className="px-5 py-3 bg-white border border-slate-200 rounded-xl shadow-soft hover:shadow-card hover:border-slate-300 transition flex items-center gap-2">
+              <div key={idx} className="px-5 py-3 bg-slate-950 border border-slate-800 rounded-xl shadow-soft hover:shadow-card hover:border-slate-700 transition flex items-center gap-2">
                 <Icon size={18} className="text-primary-600" />
-                <span className="font-semibold text-sm text-slate-700">{integration.name}</span>
+                <span className="font-semibold text-sm text-slate-100">{integration.name}</span>
               </div>
             )
           })}
@@ -56,13 +56,13 @@ export default function Integrations() {
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {steps.map((step) => (
-              <div key={step.num} className="bg-slate-50 border border-slate-200 rounded-2xl p-8 text-left">
-                <div className="text-6xl font-extrabold text-slate-200 mb-4">{step.num}</div>
+              <div key={step.num} className="bg-slate-950 border border-slate-800 rounded-2xl p-8 text-left">
+                <div className="text-6xl font-extrabold text-slate-500 mb-4">{step.num}</div>
                 <div className={`mb-4 ${step.color}`}>
                   <Zap size={32} strokeWidth={1.5} />
                 </div>
-                <h4 className="text-xl font-bold mb-2 text-slate-900">{step.title}</h4>
-                <p className="text-slate-500">{step.desc}</p>
+                <h4 className="text-xl font-bold mb-2 text-white">{step.title}</h4>
+                <p className="text-slate-400">{step.desc}</p>
               </div>
             ))}
           </div>

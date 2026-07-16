@@ -78,6 +78,11 @@ export function ProjectProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const reloadProjects = useCallback(async () => {
+    // Skip if not authenticated — avoids a 401 on public pages (login, register, etc.)
+    if (typeof window !== 'undefined' && !localStorage.getItem('authToken')) {
+      setLoading(false)
+      return
+    }
     try {
       setLoading(true)
       setError(null)

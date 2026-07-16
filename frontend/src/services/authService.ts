@@ -56,12 +56,18 @@ class AuthService {
       if (response.data.token) {
         storage.setToken(response.data.token)
       }
-      
-      // Store user data in localStorage
-      if (response.data.user) {
-        storage.setUser(response.data.user)
+
+      // Fetch the enriched profile (includes role + modules) and store it
+      try {
+        const meResponse = await this.api.get('/auth/me')
+        storage.setUser(meResponse.data)
+      } catch {
+        // fallback to login response user if /me fails
+        if (response.data.user) {
+          storage.setUser(response.data.user)
+        }
       }
-      
+
       return response.data
     } catch (error) {
       const message = handleApiError(error)

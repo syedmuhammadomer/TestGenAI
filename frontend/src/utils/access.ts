@@ -1,56 +1,69 @@
-import { User } from '@/types'
+import { MemberRole, ModuleKey, User } from '@/types'
 
-export type AppPermission =
-  | '*'
-  | 'dashboard:view'
-  | 'projects:create'
-  | 'projects:view_assigned'
-  | 'user_stories:create'
-  | 'test_cases:create'
-  | 'documents:view'
-  | 'backlogs:manage'
-  | 'backlogs:view'
-  | 'testing_status:update'
-  | 'bugs:create'
-  | 'stories_test_cases:link'
-  | 'rtm:view'
-  | 'team:manage'
-  | 'sprints:plan'
-  | 'stories:assign'
-  | 'backlog:approve_priorities'
-  | 'tickets:update_status'
-  | 'tasks:move_backlog'
-  | 'tasks:move_in_progress'
-  | 'tasks:move_testing'
-  | 'tasks:move_done'
-  | 'comments:development'
-  | 'implementation:update_progress'
+export const ALL_MODULES: ModuleKey[] = [
+  'dashboard', 'projects', 'backlogs', 'user_stories',
+  'test_manager', 'rtm', 'documents', 'analytics',
+  'team', 'settings', 'billing',
+]
 
-export const routePermissions: Record<string, AppPermission[]> = {
-  '/dashboard': ['dashboard:view'],
-  '/projects': ['projects:view_assigned'],
-  '/projects/new': ['projects:create'],
-  '/backlogs': ['backlogs:manage', 'backlogs:view'],
-  '/user-stories': ['user_stories:create'],
-  '/test-manager': ['test_cases:create', 'testing_status:update'],
-  '/rtm': ['rtm:view'],
-  '/team': ['team:manage'],
-  '/documents': ['documents:view'],
+export const DEFAULT_MODULES_BY_ROLE: Record<MemberRole, ModuleKey[]> = {
+  company_admin: [...ALL_MODULES],
+  pm:          ['dashboard', 'projects', 'backlogs', 'user_stories', 'test_manager', 'rtm', 'documents', 'analytics', 'team', 'settings'],
+  qa_engineer: ['dashboard', 'projects', 'backlogs', 'test_manager', 'rtm', 'analytics', 'settings'],
+  developer:   ['dashboard', 'projects', 'backlogs', 'user_stories', 'settings'],
+  designer:    ['dashboard', 'projects', 'documents', 'settings'],
+  ba:          ['dashboard', 'projects', 'user_stories', 'rtm', 'documents', 'analytics', 'settings'],
+  viewer:      ['dashboard', 'projects', 'settings'],
 }
 
-export const hasPermission = (user: User | null, permission: AppPermission) => {
-  if (!user) return false
-  if (user.permissions?.includes('*')) return true
-  return user.permissions?.includes(permission) ?? false
+export const ROLE_LABELS: Record<MemberRole, string> = {
+  company_admin: 'Company Admin',
+  pm:            'Project Manager',
+  qa_engineer:   'QA Engineer',
+  developer:     'Developer',
+  designer:      'Designer',
+  ba:            'Business Analyst',
+  viewer:        'Viewer',
 }
 
-export const canAccessRoute = (user: User | null, pathname: string) => {
-  const required = routePermissions[pathname]
-  if (!required) return true
-  return required.some((permission) => hasPermission(user, permission))
+export const MODULE_LABELS: Record<ModuleKey, string> = {
+  dashboard:    'Dashboard',
+  projects:     'Projects',
+  backlogs:     'Backlogs',
+  user_stories: 'User Stories',
+  test_manager: 'Test Case Manager',
+  rtm:          'RTM',
+  documents:    'Documents',
+  analytics:    'Analytics',
+  team:         'Team',
+  settings:     'Settings',
+  billing:      'Billing',
 }
 
-export const getFirstAccessibleRoute = (user: User | null) => {
-  const candidates = ['/dashboard', '/projects', '/backlogs', '/documents']
-  return candidates.find((route) => canAccessRoute(user, route)) || '/dashboard'
+/** Returns which modules the user can see based on their modules array or role fallback */
+export function getUserModules(user: User | null): ModuleKey[] {
+  if (!user) return ['dashboard']
+  if (user.modules && user.modules.length > 0) return user.modules
+  if (user.role) return DEFAULT_MODULES_BY_ROLE[user.role] ?? ['dashboard', 'settings']
+  return ['dashboard', 'settings']
+}
+
+/** True if the user can see a specific module in the nav */
+export function canSeeModule(user: User | null, module: ModuleKey): boolean {
+  return getUserModules(user).includes(module)
+}
+
+/** Map a nav href to its module key */
+export const ROUTE_MODULE_MAP: Record<string, ModuleKey> = {
+  '/dashboard':    'dashboard',
+  '/projects':     'projects',
+  '/backlogs':     'backlogs',
+  '/user-stories': 'user_stories',
+  '/test-manager': 'test_manager',
+  '/rtm':          'rtm',
+  '/documents':    'documents',
+  '/analytics':    'analytics',
+  '/team':         'team',
+  '/settings':     'settings',
+  '/billing':      'billing',
 }

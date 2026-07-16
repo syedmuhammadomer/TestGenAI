@@ -3,7 +3,7 @@ import { Zap, Github, Linkedin, Twitter } from 'lucide-react'
 
 export default function Footer() {
   return (
-    <footer className="bg-surface-alt border-t border-slate-200">
+    <footer className="bg-slate-950 border-t border-slate-800">
       <div className="container mx-auto px-6 lg:px-12 py-16">
         <div className="grid grid-cols-1 md:grid-cols-4 gap-12 mb-12">
           {/* Brand */}
@@ -12,19 +12,19 @@ export default function Footer() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary-600 text-white">
                 <Zap size={16} strokeWidth={2} />
               </div>
-              <span className="text-slate-900">TestGen AI</span>
+              <span className="text-white">TestGen AI</span>
             </div>
-            <p className="text-slate-500 text-sm mb-6">
+            <p className="text-slate-400 text-sm mb-6">
               Empowering QA teams with intelligent, automated test case generation. Ship faster with confidence.
             </p>
             <div className="flex gap-4">
-              <a href="#" className="text-slate-400 hover:text-primary-600 transition">
+              <a href="#" className="text-slate-400 hover:text-primary-200 transition">
                 <Twitter size={20} />
               </a>
-              <a href="#" className="text-slate-400 hover:text-primary-600 transition">
+              <a href="#" className="text-slate-400 hover:text-primary-200 transition">
                 <Github size={20} />
               </a>
-              <a href="#" className="text-slate-400 hover:text-primary-600 transition">
+              <a href="#" className="text-slate-400 hover:text-primary-200 transition">
                 <Linkedin size={20} />
               </a>
             </div>

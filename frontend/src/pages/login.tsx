@@ -35,14 +35,14 @@ export default function Login() {
     <div className="min-h-screen flex items-center justify-center px-4 bg-surface">
       <div className="w-full max-w-md">
         {/* Login Card */}
-        <div className="bg-white border border-slate-200 rounded-2xl p-8 shadow-elevated">
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-8 shadow-elevated">
           {/* Header */}
           <div className="mb-8 text-center">
             <div className="inline-flex h-11 w-11 items-center justify-center rounded-xl bg-primary-600 text-white mb-4">
               <Zap size={20} />
             </div>
-            <h1 className="text-2xl font-bold text-slate-900 mb-1">Welcome back</h1>
-            <p className="text-slate-500">Log in to continue to TestGen AI</p>
+            <h1 className="text-2xl font-bold text-white mb-1">Welcome back</h1>
+            <p className="text-slate-400">Log in to continue to TestGen AI</p>
           </div>
 
           {/* Success Message */}

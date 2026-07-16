@@ -1,0 +1,439 @@
+'use client'
+
+import React, { useEffect, useState } from 'react'
+import { useRouter } from 'next/router'
+import axios from 'axios'
+import Layout from '@/components/Layout'
+import {
+  ArrowLeft, Sparkles, TestTube, Link, BarChart2, Layers,
+  CheckCircle2, Clock, XCircle, RefreshCw, ChevronDown, ChevronUp,
+} from 'lucide-react'
+import { config } from '@/utils/config'
+
+type Feature = { id: number; title: string; description: string }
+type UserStory = { id: number; actor: string; goal: string; benefit: string; acceptanceCriteria: string }
+type TestCase = { id: number; testCaseId: string; title: string; preconditions: string; steps: string; expectedResult: string }
+type RtmEntry = { id: number; requirementId: string; description: string; linkedUserStories: string[]; linkedTestCases: string[] }
+type Analytics = {
+  totalFeatures: number
+  totalUserStories: number
+  totalTestCases: number
+  totalRequirements: number
+  coverageSummary: string
+  riskAreas: string | string[]
+}
+
+type Project = {
+  id: number
+  name: string
+  status: 'queued' | 'processing' | 'completed' | 'failed'
+  progress: number
+  failureReason?: string
+  createdAt: string
+  updatedAt: string
+  features?: Feature[]
+  userStories?: UserStory[]
+  testCases?: TestCase[]
+  rtm?: RtmEntry[]
+  aiResponse?: { analytics?: Analytics }
+}
+
+type Tab = 'overview' | 'features' | 'user_stories' | 'test_cases' | 'rtm' | 'analytics'
+
+const TABS: { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
+  { key: 'overview', label: 'Overview', icon: Layers },
+  { key: 'features', label: 'Features', icon: Sparkles },
+  { key: 'user_stories', label: 'User Stories', icon: Sparkles },
+  { key: 'test_cases', label: 'Test Cases', icon: TestTube },
+  { key: 'rtm', label: 'RTM', icon: Link },
+  { key: 'analytics', label: 'Analytics', icon: BarChart2 },
+]
+
+function StatusBadge({ status }: { status: Project['status'] }) {
+  const map = {
+    completed: { color: 'bg-emerald-600/20 text-emerald-300', icon: CheckCircle2 },
+    processing: { color: 'bg-blue-600/20 text-blue-300', icon: RefreshCw },
+    queued: { color: 'bg-slate-600/20 text-slate-300', icon: Clock },
+    failed: { color: 'bg-rose-600/20 text-rose-300', icon: XCircle },
+  }
+  const { color, icon: Icon } = map[status] ?? map.queued
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${color}`}>
+      <Icon className="w-3.5 h-3.5" />
+      {status.toUpperCase()}
+    </span>
+  )
+}
+
+function ExpandableCard({ title, children }: { title: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(true)
+  return (
+    <div className="rounded-xl border border-slate-800 bg-slate-950 overflow-hidden">
+      <button
+        onClick={() => setOpen((p) => !p)}
+        className="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-slate-900 transition"
+      >
+        <span className="text-sm font-semibold text-white">{title}</span>
+        {open ? <ChevronUp className="w-4 h-4 text-slate-400" /> : <ChevronDown className="w-4 h-4 text-slate-400" />}
+      </button>
+      {open && <div className="px-5 pb-5">{children}</div>}
+    </div>
+  )
+}
+
+export default function ProjectDetailPage() {
+  const router = useRouter()
+  const { id } = router.query
+  const [project, setProject] = useState<Project | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [tab, setTab] = useState<Tab>('overview')
+
+  useEffect(() => {
+    if (!id) return
+    const token = localStorage.getItem('authToken')
+    if (!token) { router.push('/login'); return }
+
+    const fetchProject = async () => {
+      try {
+        const { data } = await axios.get<Project>(`${config.apiBaseUrl}/api/projects/${id}`)
+        setProject(data)
+      } catch {
+        router.push('/projects')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchProject()
+    // Poll every 5s if still processing
+    const interval = setInterval(async () => {
+      try {
+        const { data } = await axios.get<Project>(`${config.apiBaseUrl}/api/projects/${id}`)
+        setProject(data)
+        if (data.status === 'completed' || data.status === 'failed') clearInterval(interval)
+      } catch { clearInterval(interval) }
+    }, 5000)
+
+    return () => clearInterval(interval)
+  }, [id, router])
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-surface flex items-center justify-center">
+        <div className="text-primary-400 text-lg">Loading project...</div>
+      </div>
+    )
+  }
+
+  if (!project) return null
+
+  const features = project.features ?? []
+  const userStories = project.userStories ?? []
+  const testCases = project.testCases ?? []
+  const rtm = project.rtm ?? []
+  const analytics = project.aiResponse?.analytics
+
+  const isProcessing = project.status === 'processing' || project.status === 'queued'
+
+  return (
+    <Layout>
+      {/* Back + header */}
+      <div className="mb-6">
+        <button
+          onClick={() => router.push('/projects')}
+          className="flex items-center gap-2 text-slate-400 hover:text-white text-sm mb-4 transition"
+        >
+          <ArrowLeft className="w-4 h-4" /> Back to Projects
+        </button>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-bold text-white">{project.name}</h1>
+            <p className="text-slate-400 text-sm mt-1">
+              Created {new Date(project.createdAt).toLocaleDateString()} · Last updated {new Date(project.updatedAt).toLocaleString()}
+            </p>
+          </div>
+          <StatusBadge status={project.status} />
+        </div>
+
+        {/* Progress bar */}
+        {isProcessing && (
+          <div className="mt-4 space-y-1">
+            <div className="flex justify-between text-xs text-slate-400">
+              <span>AI is analyzing your SRS ({project.progress}% complete)</span>
+              <span>{project.progress}%</span>
+            </div>
+            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+              <div
+                className="h-2 bg-gradient-to-r from-primary-500 to-accent transition-all duration-500"
+                style={{ width: `${project.progress}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {project.status === 'failed' && project.failureReason && (
+          <div className="mt-4 p-4 rounded-xl bg-rose-900/20 border border-rose-800 text-rose-300 text-sm">
+            <strong>Processing failed:</strong> {project.failureReason}
+          </div>
+        )}
+      </div>
+
+      {/* Stats bar */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+        {[
+          { label: 'Features', value: features.length },
+          { label: 'User Stories', value: userStories.length },
+          { label: 'Test Cases', value: testCases.length },
+          { label: 'RTM Entries', value: rtm.length },
+        ].map(({ label, value }) => (
+          <div key={label} className="bg-slate-950 border border-slate-800 rounded-xl p-4 text-center">
+            <p className="text-2xl font-bold text-white">{value}</p>
+            <p className="text-xs text-slate-400 mt-1">{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex gap-1 mb-6 border-b border-slate-800 overflow-x-auto">
+        {TABS.map(({ key, label, icon: Icon }) => (
+          <button
+            key={key}
+            onClick={() => setTab(key)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium whitespace-nowrap border-b-2 transition -mb-px ${
+              tab === key
+                ? 'border-primary-500 text-primary-300'
+                : 'border-transparent text-slate-400 hover:text-white'
+            }`}
+          >
+            <Icon className="w-4 h-4" />
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab content */}
+      {tab === 'overview' && (
+        <div className="space-y-4">
+          {isProcessing ? (
+            <div className="text-center py-16 text-slate-500">
+              <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-primary-500" />
+              <p>AI is still analyzing the SRS document…</p>
+              <p className="text-xs mt-1">This page will update automatically when complete.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ExpandableCard title={`Features (${features.length})`}>
+                {features.length === 0 ? <p className="text-slate-500 text-sm">No features extracted.</p> : (
+                  <ul className="space-y-2 mt-2">
+                    {features.slice(0, 5).map((f) => (
+                      <li key={f.id} className="text-sm text-slate-300 border-l-2 border-primary-600 pl-3">{f.title}</li>
+                    ))}
+                    {features.length > 5 && <li className="text-xs text-slate-500">+{features.length - 5} more…</li>}
+                  </ul>
+                )}
+              </ExpandableCard>
+              <ExpandableCard title={`User Stories (${userStories.length})`}>
+                {userStories.length === 0 ? <p className="text-slate-500 text-sm">No user stories generated.</p> : (
+                  <ul className="space-y-2 mt-2">
+                    {userStories.slice(0, 5).map((s) => (
+                      <li key={s.id} className="text-sm text-slate-300 border-l-2 border-accent pl-3">
+                        As a <strong>{s.actor}</strong>, I want to {s.goal}
+                      </li>
+                    ))}
+                    {userStories.length > 5 && <li className="text-xs text-slate-500">+{userStories.length - 5} more…</li>}
+                  </ul>
+                )}
+              </ExpandableCard>
+              <ExpandableCard title={`Test Cases (${testCases.length})`}>
+                {testCases.length === 0 ? <p className="text-slate-500 text-sm">No test cases generated.</p> : (
+                  <ul className="space-y-2 mt-2">
+                    {testCases.slice(0, 5).map((tc) => (
+                      <li key={tc.id} className="text-sm text-slate-300 border-l-2 border-emerald-600 pl-3">
+                        [{tc.testCaseId}] {tc.title}
+                      </li>
+                    ))}
+                    {testCases.length > 5 && <li className="text-xs text-slate-500">+{testCases.length - 5} more…</li>}
+                  </ul>
+                )}
+              </ExpandableCard>
+              <ExpandableCard title={`RTM Entries (${rtm.length})`}>
+                {rtm.length === 0 ? <p className="text-slate-500 text-sm">No RTM entries.</p> : (
+                  <ul className="space-y-2 mt-2">
+                    {rtm.slice(0, 5).map((r) => (
+                      <li key={r.id} className="text-sm text-slate-300 border-l-2 border-yellow-600 pl-3">
+                        [{r.requirementId}] {r.description.slice(0, 80)}{r.description.length > 80 ? '…' : ''}
+                      </li>
+                    ))}
+                    {rtm.length > 5 && <li className="text-xs text-slate-500">+{rtm.length - 5} more…</li>}
+                  </ul>
+                )}
+              </ExpandableCard>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === 'features' && (
+        <div className="space-y-4">
+          {features.length === 0 ? (
+            <p className="text-slate-500 text-center py-12">No features extracted yet.</p>
+          ) : features.map((f, i) => (
+            <div key={f.id} className="bg-slate-950 border border-slate-800 rounded-xl p-5">
+              <div className="flex items-start gap-3">
+                <span className="shrink-0 w-7 h-7 rounded-full bg-primary-600/20 text-primary-300 text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                <div>
+                  <h3 className="text-white font-semibold">{f.title}</h3>
+                  <p className="text-slate-400 text-sm mt-1">{f.description}</p>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'user_stories' && (
+        <div className="space-y-4">
+          {userStories.length === 0 ? (
+            <p className="text-slate-500 text-center py-12">No user stories generated yet.</p>
+          ) : userStories.map((s, i) => (
+            <div key={s.id} className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-3">
+              <div className="flex items-center gap-2">
+                <span className="shrink-0 w-7 h-7 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center">{i + 1}</span>
+                <p className="text-white font-medium">
+                  As a <strong className="text-primary-300">{s.actor}</strong>, I want to <strong>{s.goal}</strong>
+                  {s.benefit ? <span className="text-slate-400"> so that {s.benefit}</span> : null}
+                </p>
+              </div>
+              {s.acceptanceCriteria && (
+                <div className="ml-9 pl-3 border-l border-slate-700">
+                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Acceptance Criteria</p>
+                  <p className="text-sm text-slate-300 whitespace-pre-line">{s.acceptanceCriteria}</p>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'test_cases' && (
+        <div className="space-y-4">
+          {testCases.length === 0 ? (
+            <p className="text-slate-500 text-center py-12">No test cases generated yet.</p>
+          ) : testCases.map((tc) => (
+            <div key={tc.id} className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-3">
+              <div className="flex items-center gap-3">
+                <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-700/30 text-emerald-300 text-xs font-mono font-bold">{tc.testCaseId}</span>
+                <h3 className="text-white font-semibold">{tc.title}</h3>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                {tc.preconditions && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Preconditions</p>
+                    <p className="text-slate-300">{tc.preconditions}</p>
+                  </div>
+                )}
+                {tc.steps && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Steps</p>
+                    <p className="text-slate-300 whitespace-pre-line">{tc.steps}</p>
+                  </div>
+                )}
+                {tc.expectedResult && (
+                  <div>
+                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Expected Result</p>
+                    <p className="text-slate-300">{tc.expectedResult}</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === 'rtm' && (
+        <div className="overflow-x-auto rounded-xl border border-slate-800">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-slate-800 bg-slate-900">
+                <th className="text-left px-4 py-3 text-slate-400 font-semibold w-28">Req ID</th>
+                <th className="text-left px-4 py-3 text-slate-400 font-semibold">Description</th>
+                <th className="text-left px-4 py-3 text-slate-400 font-semibold">Linked Stories</th>
+                <th className="text-left px-4 py-3 text-slate-400 font-semibold">Linked Test Cases</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rtm.length === 0 ? (
+                <tr><td colSpan={4} className="text-center py-12 text-slate-500">No RTM entries yet.</td></tr>
+              ) : rtm.map((r, i) => (
+                <tr key={r.id} className={i % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/50'}>
+                  <td className="px-4 py-3 font-mono text-yellow-300">{r.requirementId}</td>
+                  <td className="px-4 py-3 text-slate-300">{r.description}</td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {r.linkedUserStories?.map((s) => (
+                        <span key={s} className="px-1.5 py-0.5 rounded bg-accent/20 text-accent text-xs">{s}</span>
+                      ))}
+                    </div>
+                  </td>
+                  <td className="px-4 py-3">
+                    <div className="flex flex-wrap gap-1">
+                      {r.linkedTestCases?.map((t) => (
+                        <span key={t} className="px-1.5 py-0.5 rounded bg-emerald-700/20 text-emerald-300 text-xs">{t}</span>
+                      ))}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {tab === 'analytics' && (
+        <div className="space-y-6">
+          {!analytics ? (
+            <p className="text-slate-500 text-center py-12">Analytics will appear once the AI processing completes.</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                {[
+                  { label: 'Features', value: analytics.totalFeatures },
+                  { label: 'User Stories', value: analytics.totalUserStories },
+                  { label: 'Test Cases', value: analytics.totalTestCases },
+                  { label: 'Requirements', value: analytics.totalRequirements },
+                ].map(({ label, value }) => (
+                  <div key={label} className="bg-slate-950 border border-slate-800 rounded-xl p-5 text-center">
+                    <p className="text-3xl font-bold text-white">{value ?? 0}</p>
+                    <p className="text-xs text-slate-400 mt-1">{label}</p>
+                  </div>
+                ))}
+              </div>
+              {analytics.coverageSummary && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5">
+                  <h3 className="text-white font-semibold mb-2">Coverage Summary</h3>
+                  <p className="text-slate-300 text-sm">{analytics.coverageSummary}</p>
+                </div>
+              )}
+              {analytics.riskAreas && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5">
+                  <h3 className="text-white font-semibold mb-2">Risk Areas</h3>
+                  {Array.isArray(analytics.riskAreas) ? (
+                    <ul className="space-y-1">
+                      {analytics.riskAreas.map((r, i) => (
+                        <li key={i} className="text-slate-300 text-sm flex items-start gap-2">
+                          <span className="text-rose-400 mt-0.5">•</span> {r}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <p className="text-slate-300 text-sm">{analytics.riskAreas}</p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </Layout>
+  )
+}

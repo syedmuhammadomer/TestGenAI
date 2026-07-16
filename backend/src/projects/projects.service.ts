@@ -33,12 +33,13 @@ export class ProjectsService {
     }
   }
 
-  async createProject(projectName: string, srsPath: string) {
+  async createProject(projectName: string, srsPath: string, userId?: number) {
     const project = this.projectRepository.create({
       name: projectName,
       srsPath,
       status: ProjectStatus.Queued,
       progress: 0,
+      userId,
     });
     await this.projectRepository.save(project);
     // Processed in the background within this same process - no external queue/worker required.
@@ -48,24 +49,71 @@ export class ProjectsService {
     return project;
   }
 
-  async listProjects() {
-    return this.projectRepository.find({ order: { createdAt: 'DESC' } });
+  async listProjects(userId: number) {
+    const projects = await this.projectRepository.find({
+      where: { userId },
+      relations: ['features', 'userStories', 'testCases', 'rtm'],
+      order: { createdAt: 'DESC' },
+    });
+    return projects.map((p) => this.enrichFromAiResponse(p));
   }
 
-  async getProject(projectId: number) {
-    const project = await this.projectRepository.findOne({ where: { id: projectId } });
+  async getProject(projectId: number, userId: number) {
+    const project = await this.projectRepository.findOne({
+      where: { id: projectId, userId },
+      relations: ['features', 'userStories', 'testCases', 'rtm'],
+    });
     if (!project) {
       throw new NotFoundException('Project not found');
+    }
+    return this.enrichFromAiResponse(project);
+  }
+
+  /**
+   * If relation arrays are empty but aiResponse has data (e.g. cascade save was
+   * skipped), fall back to the JSONB blob so the frontend always gets content.
+   */
+  private enrichFromAiResponse(project: Project): Project {
+    const ai = project.aiResponse as Record<string, any> | null;
+    if (!ai) return project;
+    if (!project.features?.length && Array.isArray(ai.features)) {
+      (project as any).features = ai.features;
+    }
+    if (!project.userStories?.length && Array.isArray(ai.userStories)) {
+      (project as any).userStories = ai.userStories;
+    }
+    if (!project.testCases?.length && Array.isArray(ai.testCases)) {
+      (project as any).testCases = ai.testCases;
+    }
+    if (!project.rtm?.length && Array.isArray(ai.rtm)) {
+      (project as any).rtm = ai.rtm;
     }
     return project;
   }
 
-  async deleteProject(projectId: number) {
-    const project = await this.projectRepository.findOne({ where: { id: projectId } });
+  async deleteProject(projectId: number, userId: number) {
+    const project = await this.projectRepository.findOne({ where: { id: projectId, userId } });
     if (!project) {
       throw new NotFoundException('Project not found');
     }
     await this.projectRepository.remove(project);
+  }
+
+  async listUserStories(projectId: number) {
+    const project = await this.projectRepository.findOne({ where: { id: projectId } });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+
+    return this.userStoryRepository.find({ where: { project: { id: projectId } }, order: { id: 'ASC' } });
+  }
+
+  async getUserStory(projectId: number, storyId: number) {
+    const story = await this.userStoryRepository.findOne({ where: { id: storyId, project: { id: projectId } } });
+    if (!story) {
+      throw new NotFoundException('User story not found');
+    }
+    return story;
   }
 
   async createUserStory(
@@ -194,9 +242,7 @@ export class ProjectsService {
     this.openAi = new OpenAI({
       apiKey: key,
       baseURL,
-      timeout: 300000,
-      // NVIDIA's NIM endpoint silently hangs on requests carrying the OpenAI SDK's
-      // default User-Agent/X-Stainless-* fingerprint headers; a plain UA works fine.
+      timeout: 120000,
       defaultHeaders: { 'User-Agent': 'curl/8.5.0' },
     });
     return this.openAi;
@@ -288,46 +334,91 @@ export class ProjectsService {
   }
 
   private async callOpenAi(text: string, projectName: string) {
-    const prompt = `Analyze the following SRS document for project ${projectName}:\n\n${text}`;
-    const model = this.configService.get<string>('NVIDIA_MODEL') || 'deepseek-ai/deepseek-v4-pro';
-    try {
-      // Streamed rather than awaiting the full completion in one shot: this large model can take
-      // several minutes to generate the full JSON schema, and streaming avoids idle-connection
-      // cutoffs that can hit long-lived non-streamed requests through intermediate proxies.
-      const stream = await this.getOpenAiClient().chat.completions.create({
-        model,
-        messages: [
-          {
-            role: 'system',
-            content:
-              'You are an experienced requirements analyst crafting features, user stories, test scenarios, RTM, test cases, and analytics for a QA team. Return a single strict JSON document with keys: features (array of {title, description}), userStories (array of {actor, goal, benefit, acceptanceCriteria}), testScenarios (array of {scenarioId, title, description, relatedFeature}), testCases (array of {testCaseId, title, preconditions, steps, expectedResult}), rtm (array of {requirementId, description, linkedUserStories, linkedTestCases}), analytics ({totalFeatures, totalUserStories, totalTestCases, totalRequirements, coverageSummary, riskAreas}). Do not include any text outside the JSON object.',
-          },
-          {
-            role: 'user',
-            content: `${prompt}\n\nReturn output in strict JSON format.`,
-          },
-        ],
-        temperature: 0.2,
-        max_tokens: 8000,
-        // NVIDIA NIM-specific field (not part of the OpenAI SDK types) to disable reasoning tokens in the response
-        // @ts-expect-error chat_template_kwargs is an NVIDIA NIM extension, not in the OpenAI SDK types
-        chat_template_kwargs: { thinking: false },
-        stream: true,
-      });
+    // Truncate to ~12 000 chars to stay well within context limits
+    // Tight input budget so the model has maximum room for output
+    const truncated = text.length > 5000 ? text.slice(0, 5000) + '\n[...truncated...]' : text;
+    const model = this.configService.get<string>('NVIDIA_MODEL') || 'meta/llama-3.1-70b-instruct';
+    this.logger.log(`Calling AI model: ${model}`);
 
-      let raw = '';
-      for await (const chunk of stream) {
-        raw += chunk.choices?.[0]?.delta?.content || '';
-      }
+    const controller = new AbortController();
+    const hardTimer = setTimeout(() => {
+      this.logger.warn(`AI call hard-timeout after 180 s [model=${model}]`);
+      controller.abort();
+    }, 180000);
+
+    try {
+      const response = await this.getOpenAiClient().chat.completions.create(
+        {
+          model,
+          messages: [
+            {
+              role: 'system',
+              content:
+                'You are a requirements analyst. Output ONLY a raw JSON object — absolutely no markdown, no ```json fences, no explanation. Schema: {"features":[{"title":"string","description":"string"}],"userStories":[{"actor":"string","goal":"string","benefit":"string","acceptanceCriteria":"string"}],"testCases":[{"testCaseId":"TC-1","title":"string","preconditions":"string","steps":"string","expectedResult":"string"}],"rtm":[{"requirementId":"REQ-1","description":"string","linkedUserStories":["US-1"],"linkedTestCases":["TC-1"]}],"analytics":{"totalFeatures":0,"totalUserStories":0,"totalTestCases":0,"totalRequirements":0,"coverageSummary":"string","riskAreas":["string"]}}. STRICT LIMITS: max 5 items per array, max 60 chars per string value. Close every bracket. Valid JSON only.',
+            },
+            {
+              role: 'user',
+              content: `Project: ${projectName}\n\nSRS Content:\n${truncated}\n\nReturn the JSON object now:`,
+            },
+          ],
+          temperature: 0.1,
+          max_tokens: 4096,
+          stream: false,
+        },
+        { signal: controller.signal },
+      );
+
+      clearTimeout(hardTimer);
+
+      const raw: string = (response as any)?.choices?.[0]?.message?.content || '';
+      const finishReason = (response as any)?.choices?.[0]?.finish_reason;
+      this.logger.log(`AI done. finish_reason=${finishReason}, raw length=${raw.length}`);
+      this.logger.log(`AI preview: ${raw.slice(0, 300)}`);
 
       if (!raw) {
-        throw new Error('LLM did not return content');
+        throw new Error('LLM returned empty content — check model name and API key');
       }
-      return JSON.parse(this.extractJson(raw));
+      if (finishReason === 'length') {
+        this.logger.warn('Response was cut off (finish_reason=length) — attempting JSON repair');
+      }
+
+      const jsonStr = this.extractJson(raw);
+      try {
+        return JSON.parse(jsonStr);
+      } catch {
+        // Try to salvage a truncated response by closing open structures
+        const repaired = this.repairJson(jsonStr);
+        this.logger.warn(`Attempting repaired JSON parse`);
+        return JSON.parse(repaired);
+      }
     } catch (error) {
-      this.logger.error('AI request failed', error);
-      throw new Error('AI processing failed');
+      clearTimeout(hardTimer);
+      const detail = error instanceof Error ? error.message : String(error);
+      this.logger.error(`AI request failed [model=${model}]: ${detail}`);
+      throw new Error(`AI processing failed: ${detail}`);
     }
+  }
+
+  /** Best-effort repair of truncated JSON by closing unclosed structures. */
+  private repairJson(raw: string): string {
+    let s = raw.trimEnd();
+    // Remove any trailing comma before we close
+    s = s.replace(/,\s*$/, '');
+    // Count unclosed braces/brackets
+    const stack: string[] = [];
+    let inString = false;
+    let escape = false;
+    for (const ch of s) {
+      if (escape) { escape = false; continue; }
+      if (ch === '\\' && inString) { escape = true; continue; }
+      if (ch === '"') { inString = !inString; continue; }
+      if (inString) continue;
+      if (ch === '{') stack.push('}');
+      else if (ch === '[') stack.push(']');
+      else if (ch === '}' || ch === ']') stack.pop();
+    }
+    // Close in reverse order
+    return s + stack.reverse().join('');
   }
 
   private extractJson(raw: string) {

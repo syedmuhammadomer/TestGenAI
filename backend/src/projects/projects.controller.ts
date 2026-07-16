@@ -1,4 +1,5 @@
-import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, ParseIntPipe, Patch, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, ParseIntPipe, Patch, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
+import { JwtAuthGuard, AuthenticatedRequest } from '../auth/guards/jwt-auth.guard';
 import { ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { diskStorage } from 'multer';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -38,6 +39,7 @@ const storage = diskStorage({
 });
 
 @ApiTags('projects')
+@UseGuards(JwtAuthGuard)
 @Controller('api/projects')
 export class ProjectsController {
   constructor(private readonly projectsService: ProjectsService) {}
@@ -67,11 +69,11 @@ export class ProjectsController {
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
-  async createProject(@Body() body: CreateProjectDto, @UploadedFile() file: Express.Multer.File) {
+  async createProject(@Req() req: AuthenticatedRequest, @Body() body: CreateProjectDto, @UploadedFile() file: Express.Multer.File) {
     if (file == null) {
       throw new BadRequestException('SRS document is required');
     }
-    const project = await this.projectsService.createProject(body.projectName, file.path);
+    const project = await this.projectsService.createProject(body.projectName, file.path, req.user!.id);
     return {
       message: 'Project queued for processing',
       projectId: project.id,
@@ -82,15 +84,15 @@ export class ProjectsController {
   @Get()
   @ApiOperation({ summary: 'List processed projects' })
   @ApiResponse({ status: 200, description: 'Project list' })
-  async listProjects() {
-    return this.projectsService.listProjects();
+  async listProjects(@Req() req: AuthenticatedRequest) {
+    return this.projectsService.listProjects(req.user!.id);
   }
 
   @Get(':id')
   @ApiOperation({ summary: 'Get a project with AI results' })
   @ApiResponse({ status: 200, description: 'Project returned' })
-  async getProject(@Param('id', ParseIntPipe) id: number) {
-    const project = await this.projectsService.getProject(id);
+  async getProject(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+    const project = await this.projectsService.getProject(id, req.user!.id);
     if (project == null) {
       throw new NotFoundException('Project not found');
     }
@@ -144,34 +146,8 @@ export class ProjectsController {
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a project and its AI output' })
   @ApiResponse({ status: 200, description: 'Project deleted successfully' })
-  async deleteProject(@Param('id', ParseIntPipe) id: number) {
-    await this.projectsService.deleteProject(id);
+  async deleteProject(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+    await this.projectsService.deleteProject(id, req.user!.id);
     return { message: 'Project deleted successfully' };
-  }
-
-  @Post(':id/user-stories')
-  @ApiOperation({ summary: 'Manually add a user story to a project' })
-  @ApiResponse({ status: 201, description: 'User story created' })
-  async createUserStory(@Param('id', ParseIntPipe) id: number, @Body() body: CreateUserStoryDto) {
-    return this.projectsService.createUserStory(id, body);
-  }
-
-  @Patch(':id/user-stories/:storyId')
-  @ApiOperation({ summary: 'Update a user story' })
-  @ApiResponse({ status: 200, description: 'User story updated' })
-  async updateUserStory(
-    @Param('id', ParseIntPipe) id: number,
-    @Param('storyId', ParseIntPipe) storyId: number,
-    @Body() body: UpdateUserStoryDto,
-  ) {
-    return this.projectsService.updateUserStory(id, storyId, body);
-  }
-
-  @Delete(':id/user-stories/:storyId')
-  @ApiOperation({ summary: 'Delete a user story' })
-  @ApiResponse({ status: 200, description: 'User story deleted' })
-  async deleteUserStory(@Param('id', ParseIntPipe) id: number, @Param('storyId', ParseIntPipe) storyId: number) {
-    await this.projectsService.deleteUserStory(id, storyId);
-    return { message: 'User story deleted successfully' };
   }
 }

@@ -1,8 +1,9 @@
 import * as React from 'react'
 import { useMemo, useState } from 'react'
-import { MoreVertical, Search, PlusCircle } from 'lucide-react'
+import { MoreVertical, Search, PlusCircle, X } from 'lucide-react'
 import Button from './Button'
-import { ProjectRecord } from '@/context/ProjectContext'
+import { ProjectRecord, useProjectContext } from '@/context/ProjectContext'
+import { userStoryService, UserStoryInput } from '@/services/userStoryService'
 
 export type StoryStatus = 'Backlog' | 'In Progress' | 'QA Reviews' | 'Done'
 
@@ -21,20 +22,38 @@ type BacklogsProps = {
 }
 
 export default function Backlogs({ selectedProject }: BacklogsProps) {
+  const { selectedProjectId, refreshSelectedProject } = useProjectContext()
   const columns: StoryStatus[] = ['Backlog', 'In Progress', 'QA Reviews', 'Done']
   const [searchTerm, setSearchTerm] = useState('')
+  const [showCreateForm, setShowCreateForm] = useState(false)
+  const [form, setForm] = useState<UserStoryInput>({ actor: '', goal: '', benefit: '', acceptanceCriteria: '' })
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   const initialStories = useMemo<UserStory[]>(
     () =>
-      (selectedProject?.userStories ?? []).map((story, index) => ({
-        id: `${selectedProject?.id ?? 'project'}-${index + 1}`,
-        projectId: String(selectedProject?.id ?? ''),
-        title: story.goal,
-        description: story.benefit || story.acceptanceCriteria || 'No additional details provided.',
-        status: 'Backlog',
-        priority: index % 3 === 0 ? 'High' : index % 3 === 1 ? 'Medium' : 'Low',
-        points: Math.max(1, (story.acceptanceCriteria?.split('\n').filter(Boolean).length ?? 0) || 1),
-      })),
+      (selectedProject?.userStories ?? []).map((story, index) => {
+        let savedPriority: 'High' | 'Medium' | 'Low' = index % 3 === 0 ? 'High' : index % 3 === 1 ? 'Medium' : 'Low'
+        let savedStatus: StoryStatus = 'Backlog'
+        try {
+          const raw = localStorage.getItem(`us_meta_${selectedProject?.id}_${story.id}`)
+          if (raw) {
+            const meta = JSON.parse(raw)
+            if (meta.priority) savedPriority = meta.priority
+            if (meta.status === 'In Progress') savedStatus = 'In Progress'
+            else if (meta.status === 'Done') savedStatus = 'Done'
+          }
+        } catch { /* noop */ }
+        return {
+          id: `${selectedProject?.id ?? 'project'}-${index + 1}`,
+          projectId: String(selectedProject?.id ?? ''),
+          title: story.goal,
+          description: story.benefit || story.acceptanceCriteria || 'No additional details provided.',
+          status: savedStatus,
+          priority: savedPriority,
+          points: Math.max(1, (story.acceptanceCriteria?.split('\n').filter(Boolean).length ?? 0) || 1),
+        }
+      }),
     [selectedProject],
   )
   const [stories, setStories] = useState<UserStory[]>([])
@@ -67,6 +86,55 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
       `${story.title} ${story.description}`.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
+  const startCreateStory = () => {
+    setForm({ actor: '', goal: '', benefit: '', acceptanceCriteria: '' })
+    setFormError(null)
+    setShowCreateForm(true)
+  }
+
+  const cancelCreateStory = () => {
+    setShowCreateForm(false)
+    setForm({ actor: '', goal: '', benefit: '', acceptanceCriteria: '' })
+    setFormError(null)
+  }
+
+  const handleCreateStory = async () => {
+    if (!selectedProjectId) {
+      setFormError('Select a project before creating a story.')
+      return
+    }
+
+    if (!form.goal?.trim()) {
+      setFormError('Goal is required.')
+      return
+    }
+
+    setSubmitting(true)
+    setFormError(null)
+
+    try {
+      await userStoryService.create(selectedProjectId, form)
+      await refreshSelectedProject()
+      setStories((prev) => [
+        {
+          id: `${selectedProjectId}-${Date.now()}`,
+          projectId: String(selectedProjectId),
+          title: form.goal.trim(),
+          description: form.benefit?.trim() || form.acceptanceCriteria?.trim() || 'No additional details provided.',
+          status: 'Backlog',
+          priority: 'Medium',
+          points: Math.max(1, (form.acceptanceCriteria?.split('\n').filter(Boolean).length ?? 0) || 1),
+        },
+        ...prev,
+      ])
+      cancelCreateStory()
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : 'Unable to create the story right now.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -91,7 +159,7 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
             />
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-slate-500" />
           </div>
-          <Button className="whitespace-nowrap">
+          <Button className="whitespace-nowrap" onClick={startCreateStory} disabled={!selectedProjectId}>
             <PlusCircle className="w-4 h-4 mr-2 inline" /> New Story
           </Button>
         </div>
@@ -101,6 +169,72 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
         <div className="rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500">
           Select a project from the dropdown next to the logo to load its user stories into the backlog board.
         </div>
+      )}
+
+      {showCreateForm && (
+        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-slate-900">Create a story manually</h2>
+              <p className="text-sm text-slate-500">Add a new backlog item without waiting for AI generation.</p>
+            </div>
+            <button onClick={cancelCreateStory} className="text-slate-400 hover:text-slate-700" aria-label="Close form">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
+
+          {formError && (
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{formError}</div>
+          )}
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Actor</span>
+              <input
+                value={form.actor || ''}
+                onChange={(event) => setForm((current) => ({ ...current, actor: event.target.value }))}
+                placeholder="e.g. Registered member"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              />
+            </label>
+            <label className="block space-y-2 text-sm text-slate-600">
+              <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Goal *</span>
+              <input
+                value={form.goal || ''}
+                onChange={(event) => setForm((current) => ({ ...current, goal: event.target.value }))}
+                placeholder="e.g. search the catalog by title"
+                className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              />
+            </label>
+          </div>
+
+          <label className="block space-y-2 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Benefit</span>
+            <input
+              value={form.benefit || ''}
+              onChange={(event) => setForm((current) => ({ ...current, benefit: event.target.value }))}
+              placeholder="so that I can find books quickly"
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+            />
+          </label>
+
+          <label className="block space-y-2 text-sm text-slate-600">
+            <span className="text-xs uppercase tracking-[0.3em] text-slate-400">Acceptance Criteria</span>
+            <textarea
+              value={form.acceptanceCriteria || ''}
+              onChange={(event) => setForm((current) => ({ ...current, acceptanceCriteria: event.target.value }))}
+              rows={3}
+              className="w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-2 text-sm text-slate-700 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+            />
+          </label>
+
+          <div className="flex justify-end gap-3">
+            <Button variant="outline" onClick={cancelCreateStory}>Cancel</Button>
+            <Button onClick={handleCreateStory} isLoading={submitting}>
+              {submitting ? 'Creating...' : 'Create story'}
+            </Button>
+          </div>
+        </section>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-6 flex-1 min-h-[600px] pb-6">

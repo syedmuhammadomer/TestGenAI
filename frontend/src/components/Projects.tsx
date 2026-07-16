@@ -28,22 +28,22 @@ export default function Projects({ projects, onDeleteRequest }: ProjectsProps) {
       {/* header */}
       <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between mb-6 gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-slate-900">Projects</h1>
-          <p className="text-slate-500">Manage your QA projects and track progress</p>
+          <h1 className="text-2xl font-bold text-white">Projects</h1>
+          <p className="text-slate-400">Manage your QA projects and track progress</p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <div className="relative">
             <input
               type="text"
               placeholder="Search projects..."
-              className="w-full lg:w-64 pl-9 pr-4 py-2 rounded-lg border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full lg:w-64 pl-9 pr-4 py-2 rounded-lg border border-slate-800 bg-slate-900 text-slate-100 placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
           </div>
-          <select className="border border-slate-200 bg-white text-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+          <select className="border border-slate-800 bg-slate-900 text-slate-100 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
             <option>All Status</option>
           </select>
-          <select className="border border-slate-200 bg-white text-slate-700 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
+          <select className="border border-slate-800 bg-slate-900 text-slate-100 rounded-lg py-2 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary-500">
             <option>Sort by: Recent</option>
           </select>
           <Button onClick={() => router.push('/projects/new')}>
@@ -54,32 +54,34 @@ export default function Projects({ projects, onDeleteRequest }: ProjectsProps) {
 
       {/* grid */}
       {projects.length === 0 ? (
-        <div className="text-slate-500 bg-white border border-dashed border-slate-300 rounded-2xl p-12 text-center">No projects available yet. Queue one to start.</div>
+        <div className="text-slate-400 bg-slate-950 border border-dashed border-slate-800 rounded-2xl p-12 text-center">No projects available yet. Queue one to start.</div>
       ) : (
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
           {projects.map((project) => (
             <div
               key={project.id}
-              className="relative bg-white rounded-2xl shadow-soft hover:shadow-card transition-shadow border border-slate-200 overflow-hidden"
+              className="relative bg-slate-950 rounded-2xl shadow-soft hover:shadow-card transition-shadow border border-slate-800 overflow-hidden cursor-pointer group"
+              onClick={() => router.push(`/projects/${project.id}`)}
             >
               <div className="p-6 space-y-3">
                 <div className="flex justify-between items-center relative">
-                  <h2 className="text-lg font-semibold text-slate-900">{project.name}</h2>
+                  <h2 className="text-lg font-semibold text-white group-hover:text-primary-300 transition-colors">{project.name}</h2>
                   <button
-                    onClick={() => setMenuOpenId((prev) => (prev === project.id ? null : project.id))}
-                    className="rounded-full p-1 transition hover:bg-slate-100"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpenId((prev) => (prev === project.id ? null : project.id)) }}
+                    className="rounded-full p-1 transition hover:bg-slate-800"
                     aria-label="Project options"
                   >
                     <MoreVertical className="w-5 h-5 text-slate-400" />
                   </button>
                   {menuOpenId === project.id && (
-                    <div className="absolute right-0 top-10 z-10 w-36 rounded-lg border border-slate-200 bg-white shadow-elevated">
+                    <div className="absolute right-0 top-10 z-10 w-36 rounded-lg border border-slate-800 bg-slate-950 shadow-elevated">
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation()
                           setMenuOpenId(null)
                           onDeleteRequest(project)
                         }}
-                        className="w-full px-3 py-2 text-left text-sm text-slate-700 hover:bg-rose-50 hover:text-rose-600 rounded-lg transition"
+                        className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-rose-900 hover:text-rose-300 rounded-lg transition"
                       >
                         Delete project
                       </button>
@@ -89,23 +91,23 @@ export default function Projects({ projects, onDeleteRequest }: ProjectsProps) {
                 <span
                   className={`inline-flex px-3 py-1 text-xs font-semibold rounded-full ${
                     project.status === 'completed'
-                      ? 'bg-emerald-50 text-emerald-600'
+                      ? 'bg-emerald-600/10 text-emerald-200'
                       : project.status === 'processing'
-                        ? 'bg-primary-50 text-primary-600'
-                        : 'bg-rose-50 text-rose-600'
+                        ? 'bg-primary-600/10 text-primary-200'
+                        : 'bg-rose-600/10 text-rose-200'
                   }`}
                 >
                   {project.status.toUpperCase()}
                 </span>
-                <p className="text-sm text-slate-500">{project.description || 'Automated QA insight in progress'}</p>
-                <div className="grid grid-cols-2 gap-3 text-xs pt-2 border-t border-slate-100">
+                <p className="text-sm text-slate-400">{project.description || 'Automated QA insight in progress'}</p>
+                <div className="grid grid-cols-2 gap-3 text-xs pt-2 border-t border-slate-800">
                   <div>
-                    <p className="text-2xl font-semibold text-slate-900">{project.features?.length ?? 0}</p>
-                    <p className="text-slate-500">Features</p>
+                    <p className="text-2xl font-semibold text-white">{project.features?.length ?? 0}</p>
+                    <p className="text-slate-400">Features</p>
                   </div>
                   <div>
-                    <p className="text-2xl font-semibold text-slate-900">{project.testCases?.length ?? 0}</p>
-                    <p className="text-slate-500">Test Cases</p>
+                    <p className="text-2xl font-semibold text-white">{project.testCases?.length ?? 0}</p>
+                    <p className="text-slate-400">Test Cases</p>
                   </div>
                 </div>
                 <div className="text-xs h-4 text-slate-400">

@@ -1,4 +1,4 @@
-import { Column, CreateDateColumn, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, CreateDateColumn, Entity, Index, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { Feature } from './feature.entity';
 import { RtmEntry } from './rtm.entity';
 import { TestCase } from './test-case.entity';
@@ -15,6 +15,10 @@ export enum ProjectStatus {
 export class Project {
   @PrimaryGeneratedColumn()
   id: number;
+
+  @Index()
+  @Column({ type: 'int', nullable: true })
+  userId?: number;
 
   @Column()
   name: string;

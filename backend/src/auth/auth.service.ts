@@ -6,6 +6,7 @@ import * as jwt from 'jsonwebtoken';
 import { User } from './user.entity';
 import { PendingRegistration } from './pending-registration.entity';
 import { EmailService } from './email.service';
+import { ALL_MODULES, DEFAULT_MODULES_BY_ROLE, MemberRole, TeamMember } from '../team/entities/team-member.entity';
 
 @Injectable()
 export class AuthService {
@@ -18,6 +19,8 @@ export class AuthService {
     private userRepository: Repository<User>,
     @InjectRepository(PendingRegistration)
     private pendingRepository: Repository<PendingRegistration>,
+    @InjectRepository(TeamMember)
+    private teamMemberRepository: Repository<TeamMember>,
     private emailService: EmailService,
   ) {
     this.createDemoUser();
@@ -229,19 +232,43 @@ export class AuthService {
   }
 
   /**
-   * Get the current authenticated user's profile
+   * Get the current authenticated user's profile, enriched with team role + module access.
+   * - Company admins (user.role === 'admin') always get full access.
+   * - Everyone else looks up their TeamMember record by email for role + modules.
    */
   async getMe(userId: number) {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) {
       throw new BadRequestException('User not found');
     }
+
+    // Company admin — full access regardless of TeamMember record
+    if (user.role === 'admin') {
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: MemberRole.CompanyAdmin,
+        modules: [...ALL_MODULES],
+      };
+    }
+
+    // Look up their TeamMember record to get assigned role + modules
+    const member = await this.teamMemberRepository.findOne({ where: { email: user.email } });
+
+    const memberRole: MemberRole = member?.role ?? MemberRole.Viewer;
+    const modules = member?.modules?.length
+      ? member.modules
+      : DEFAULT_MODULES_BY_ROLE[memberRole];
+
     return {
       id: user.id,
       email: user.email,
       firstName: user.firstName,
       lastName: user.lastName,
-      role: user.role,
+      role: memberRole,
+      modules,
     };
   }
 

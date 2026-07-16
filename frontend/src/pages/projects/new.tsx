@@ -6,8 +6,7 @@ import Layout from '@/components/Layout'
 import Button from '@/components/Button'
 import { Upload } from 'lucide-react'
 import axios from 'axios'
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || 'http://localhost:3000'
+import { config } from '@/utils/config'
 
 const getErrorMessage = (error: unknown) => {
   if (typeof error === 'object' && error !== null) {
@@ -58,7 +57,7 @@ export default function NewProjectPage() {
     formData.set('srsDocument', srsFile)
 
     try {
-      await axios.post(`${API_BASE_URL}/api/projects`, formData, {
+      await axios.post(`${config.apiBaseUrl}/api/projects`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       setProgress(70)

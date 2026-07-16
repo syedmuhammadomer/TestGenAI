@@ -1,4 +1,5 @@
-import { IsBoolean, IsEmail, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsArray, IsBoolean, IsEmail, IsEnum, IsIn, IsOptional, IsString, MaxLength } from 'class-validator';
+import { MemberRole } from '../entities/team-member.entity';
 
 export class InviteTeamMemberDto {
   @IsString()
@@ -8,26 +9,29 @@ export class InviteTeamMemberDto {
   @IsEmail()
   email: string;
 
-  @IsString()
-  @MaxLength(100)
-  role: string;
+  @IsEnum(MemberRole)
+  role: MemberRole;
 
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  team: string;
+  team?: string;
 
   @IsOptional()
   @IsString()
   @MaxLength(120)
   project?: string;
 
-  @IsString()
-  @IsIn(['full', 'project', 'review'])
-  accessPreset: string;
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  modules?: string[];
 
+  @IsOptional()
   @IsBoolean()
-  sendCopy: boolean;
+  sendCopy?: boolean;
 
+  @IsOptional()
   @IsBoolean()
-  addWelcomeNote: boolean;
+  addWelcomeNote?: boolean;
 }

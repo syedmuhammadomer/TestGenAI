@@ -8,6 +8,18 @@ export type UserStoryInput = {
   acceptanceCriteria?: string
 }
 
+export type UserStoryPayload = {
+  title: string
+  userRole: string
+  description: string
+  priority: 'High' | 'Medium' | 'Low'
+  dueDate?: string
+  assigneeId?: string
+  assigneeName?: string
+  attachmentNames?: string[]
+  acceptanceCriteria?: string
+}
+
 export const userStoryService = {
   async create(projectId: number, input: UserStoryInput) {
     try {

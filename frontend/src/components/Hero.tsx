@@ -52,15 +52,15 @@ export default function Hero() {
 
         {/* Demo Box */}
         <div className="max-w-4xl mx-auto">
-          <div className="bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-elevated">
+          <div className="bg-slate-950 border border-slate-800 rounded-2xl overflow-hidden shadow-elevated">
             {/* Browser Chrome */}
-            <div className="bg-slate-50 border-b border-slate-200 px-4 py-3 flex items-center gap-2">
+            <div className="bg-slate-900 border-b border-slate-800 px-4 py-3 flex items-center gap-2">
               <div className="flex gap-2">
                 <div className="w-3 h-3 bg-red-400 rounded-full"></div>
                 <div className="w-3 h-3 bg-yellow-400 rounded-full"></div>
                 <div className="w-3 h-3 bg-green-400 rounded-full"></div>
               </div>
-              <span className="ml-4 text-slate-500 text-xs">📄 input_requirements.pdf</span>
+              <span className="ml-4 text-slate-400 text-xs">📄 input_requirements.pdf</span>
             </div>
 
             {/* Content Area */}
@@ -68,7 +68,7 @@ export default function Hero() {
               {/* Left Side - Input */}
               <div>
                 <div className="text-slate-400 text-xs mb-4 font-mono">{'// User Story: Authentication'}</div>
-                <div className="text-slate-600 text-sm leading-relaxed font-mono">
+                <div className="text-slate-400 text-sm leading-relaxed font-mono">
                   <div className="mb-2">As a user, I want to be able to</div>
                   <div className="mb-2">log in with my email and</div>
                   <div className="mb-4">password so that I can access my</div>
@@ -101,7 +101,7 @@ export default function Hero() {
                     <div className="w-5 h-5 rounded-full border-2 border-amber-500 flex items-center justify-center">
                       <span className="text-amber-500 text-xs">⚠</span>
                     </div>
-                    <span className="font-semibold text-slate-900">TC_002: Invalid Password</span>
+                    <span className="font-semibold text-white">TC_002: Invalid Password</span>
                   </div>
                   <div className="text-slate-500 text-xs ml-7 mb-4">
                     Verify error message &quot;Invalid credentials&quot; appears on wrong password.
@@ -111,7 +111,7 @@ export default function Hero() {
                     <div className="w-5 h-5 rounded-full border-2 border-blue-500 flex items-center justify-center">
                       <span className="text-blue-500 text-xs">📋</span>
                     </div>
-                    <span className="font-semibold text-slate-900">TC_003: SQL Injection Attempt</span>
+                    <span className="font-semibold text-white">TC_003: SQL Injection Attempt</span>
                   </div>
                   <div className="text-slate-500 text-xs ml-7 mb-4">
                     Verify input fields sanitize special characters and prevent injection.
