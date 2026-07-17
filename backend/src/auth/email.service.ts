@@ -8,25 +8,32 @@ export class EmailService {
 
   constructor() {
     this.frontendUrl = this.resolveFrontendUrl();
+    console.log(`[EMAIL] Frontend URL resolved to: ${this.frontendUrl}`);
+
+    const smtpUser = process.env.SMTP_USER;
+    const smtpPass = process.env.SMTP_PASS;
+
+    if (!smtpUser || !smtpPass) {
+      console.warn('[EMAIL] SMTP_USER or SMTP_PASS not set — email sending will be skipped');
+    }
+
     this.transporter = nodemailer.createTransport({
-      service: 'gmail', // Use Gmail service instead of manual config
+      service: 'gmail',
       host: 'smtp.gmail.com',
       port: 587,
-      secure: false, // true for 465, false for 587
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS, // This should be app password, not regular password
-      },
+      secure: false,
+      auth: { user: smtpUser, pass: smtpPass },
     });
 
-    // Verify connection
-    this.transporter.verify((error, _success) => {
-      if (error) {
-        console.error('[EMAIL] Connection Error:', error);
-      } else {
-        console.log('[EMAIL] SMTP Connection verified successfully');
-      }
-    });
+    if (smtpUser && smtpPass) {
+      this.transporter.verify((error, _success) => {
+        if (error) {
+          console.error('[EMAIL] SMTP connection failed:', error.message);
+        } else {
+          console.log('[EMAIL] SMTP connection verified successfully');
+        }
+      });
+    }
   }
 
   async sendOtpEmail(email: string, otp: string): Promise<void> {
@@ -76,15 +83,16 @@ export class EmailService {
       console.log(`[EMAIL] Message ID: ${info.messageId}`);
       console.log(`[DEV] OTP for ${email}: ${otp}`);
     } catch (error) {
+      const err = error as { message?: string; code?: string; response?: string };
       console.error(`[EMAIL] ❌ Failed to send OTP to ${email}`);
-      console.error(`[EMAIL] Error Details:`, error.message);
-      console.error(`[EMAIL] Error Code:`, error.code);
-      if (error.response) {
-        console.error(`[EMAIL] SMTP Response:`, error.response);
+      console.error(`[EMAIL] Error Details:`, err.message);
+      console.error(`[EMAIL] Error Code:`, err.code);
+      if (err.response) {
+        console.error(`[EMAIL] SMTP Response:`, err.response);
       }
       // For development, still log the OTP to console as fallback
       console.log(`[DEV] OTP for ${email}: ${otp} (Use this OTP for testing)`);
-      throw new Error(`Failed to send OTP email: ${error.message}`);
+      throw new Error(`Failed to send OTP email: ${err.message}`);
     }
   }
 
@@ -144,7 +152,12 @@ export class EmailService {
     project?: string;
     team: string;
   }): Promise<void> {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.warn(`[EMAIL] Skipping invite email to ${params.email} — SMTP_USER/SMTP_PASS not configured`);
+      return;
+    }
     const inviteUrl = `${this.frontendUrl}/register?email=${encodeURIComponent(params.email)}`;
+    console.log(`[EMAIL] Invite URL: ${inviteUrl}`);
     const mailOptions = {
       from: process.env.SMTP_FROM || process.env.SMTP_USER,
       to: params.email,
