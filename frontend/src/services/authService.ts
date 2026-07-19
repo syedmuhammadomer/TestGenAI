@@ -138,6 +138,25 @@ class AuthService {
   }
 
   /**
+   * Register an invited member directly (no OTP step).
+   * Called when the user arrives via a team invite link.
+   */
+  async registerInvited({ firstName, lastName, email, password }: { firstName: string; lastName: string; email: string; password: string }): Promise<{ token: string; message: string }> {
+    const response = await this.api.post<{ token: string; message: string }>(
+      '/auth/register-invited',
+      { firstName, lastName, email, password, confirmPassword: password },
+    )
+    if (response.data.token) {
+      storage.setToken(response.data.token)
+      try {
+        const meResponse = await this.api.get('/auth/me')
+        storage.setUser(meResponse.data)
+      } catch { /* ignore */ }
+    }
+    return response.data
+  }
+
+  /**
    * Verify OTP for a pending registration.
    */
   async verifyOtp({ email, otp }: { email: string; otp: string }): Promise<{ token: string }> {

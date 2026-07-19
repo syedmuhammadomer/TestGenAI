@@ -6,7 +6,7 @@ import * as jwt from 'jsonwebtoken';
 import { User } from './user.entity';
 import { PendingRegistration } from './pending-registration.entity';
 import { EmailService } from './email.service';
-import { ALL_MODULES, DEFAULT_MODULES_BY_ROLE, MemberRole, TeamMember } from '../team/entities/team-member.entity';
+import { ALL_MODULES, DEFAULT_MODULES_BY_ROLE, MemberRole, TeamMember, TeamMemberStatus } from '../team/entities/team-member.entity';
 
 @Injectable()
 export class AuthService {
@@ -109,6 +109,51 @@ export class AuthService {
     return {
       message: 'Registration submitted. OTP sent to your email',
     };
+  }
+
+  /**
+   * Register an invited member directly — no OTP required.
+   * The invite link itself is the proof of intent.
+   */
+  async registerInvited(firstName: string, lastName: string, email: string, password: string): Promise<{ token: string; message: string }> {
+    const normalizedEmail = email.toLowerCase();
+
+    // Must have a pending invite
+    const member = await this.teamMemberRepository.findOne({
+      where: { email: normalizedEmail, status: TeamMemberStatus.Invited },
+    });
+    if (!member) {
+      throw new BadRequestException('No pending invitation found for this email address');
+    }
+
+    // Must not already be registered
+    const existingUser = await this.userRepository.findOne({ where: { email: normalizedEmail } });
+    if (existingUser) {
+      throw new BadRequestException('An account with this email already exists. Please log in.');
+    }
+
+    const passwordHash = await bcrypt.hash(password, 10);
+
+    const newUser = this.userRepository.create({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      email: normalizedEmail,
+      passwordHash,
+      verified: true,
+    });
+    await this.userRepository.save(newUser);
+
+    // Mark team member as active
+    member.status = TeamMemberStatus.Online;
+    await this.teamMemberRepository.save(member);
+
+    const token = jwt.sign(
+      { id: newUser.id, email: newUser.email, role: newUser.role },
+      this.JWT_SECRET,
+      { expiresIn: '7d' },
+    );
+
+    return { token, message: 'Account created successfully' };
   }
 
   /**

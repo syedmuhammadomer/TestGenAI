@@ -11,6 +11,7 @@ export default function Register() {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
   const [email, setEmail] = useState('')
+  const [isInvited, setIsInvited] = useState(false)
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [errors, setErrors] = useState<{ firstName?: string; lastName?: string; email?: string; password?: string; confirm?: string }>({})
@@ -25,6 +26,7 @@ export default function Register() {
   useEffect(() => {
     if (router.isReady && router.query.email) {
       setEmail(decodeURIComponent(router.query.email as string))
+      setIsInvited(true)
     }
   }, [router.isReady, router.query.email])
 
@@ -52,13 +54,19 @@ export default function Register() {
 
     setLoading(true)
     try {
-      await authService.register({ firstName, lastName, email, password, confirmPassword: confirm })
-      setSuccess('Registration submitted — OTP sent (mock).')
-      // Redirect to OTP verification
-      router.push(`/verify-otp?email=${encodeURIComponent(email)}`)
+      if (isInvited) {
+        // Invited members skip OTP — account is created directly
+        await authService.registerInvited({ firstName, lastName, email, password })
+        setSuccess('Account created! Redirecting…')
+        router.push('/dashboard')
+      } else {
+        await authService.register({ firstName, lastName, email, password, confirmPassword: confirm })
+        setSuccess('OTP sent to your email.')
+        router.push(`/verify-otp?email=${encodeURIComponent(email)}`)
+      }
     } catch (err: unknown) {
-      const error = err as { message?: string }
-      setServerError(error?.message || 'Registration failed')
+      const error = err as { message?: string; response?: { data?: { message?: string } } }
+      setServerError(error?.response?.data?.message || error?.message || 'Registration failed')
     } finally {
       setLoading(false)
     }
@@ -151,6 +159,12 @@ export default function Register() {
             </div>
           )}
 
+          {isInvited && (
+            <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg flex items-center gap-2 text-sm text-blue-700">
+              <CheckCircle size={16} /> You were invited to TestGen AI. Complete your profile to get started.
+            </div>
+          )}
+
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* First Name Field */}
             <div>
@@ -206,7 +220,7 @@ export default function Register() {
                   onChange={(e) => setEmail(e.target.value)}
                   onBlur={() => setTouched(prev => ({ ...prev, email: true }))}
                   placeholder="you@example.com"
-                  disabled={loading}
+                  disabled={loading || isInvited}
                   className={inputClass(touched.email && !!errors.email)}
                 />
               </div>
@@ -281,7 +295,7 @@ export default function Register() {
               isLoading={loading}
               className="w-full mt-2"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {loading ? 'Creating account...' : isInvited ? 'Accept Invitation & Create Account' : 'Create account'}
             </Button>
 
             <div className="text-center mt-4">

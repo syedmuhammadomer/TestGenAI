@@ -86,6 +86,13 @@ export class AuthController {
     return this.authService.register(firstName, lastName, email, password);
   }
 
+  @Post('register-invited')
+  @ApiOperation({ summary: 'Complete registration from a team invite link (no OTP required)' })
+  async registerInvited(@Body() body: RegisterDto) {
+    const { firstName, lastName, email, password } = body;
+    return this.authService.registerInvited(firstName, lastName, email, password);
+  }
+
   @Post('verify-otp')
   @ApiOperation({ summary: 'Verify OTP and complete registration' })
   @ApiBody({
