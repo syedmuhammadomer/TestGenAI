@@ -1,13 +1,15 @@
 'use client'
 
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import Layout from '@/components/Layout'
 import {
   MessageSquare, Plus, Search, X, Send, Users, Hash,
   ChevronDown, Check, FolderOpen, User, MoreVertical,
-  Paperclip, Smile, Phone, Video, Info, ArrowLeft,
+  Paperclip, Smile, Phone, Video, Info, ArrowLeft, Loader2,
 } from 'lucide-react'
 import { useProjectContext } from '@/context/ProjectContext'
+import { teamService, TeamMemberRecord } from '@/services/teamService'
+import { ROLE_LABELS } from '@/utils/access'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 type ChatType = 'group' | 'project' | 'direct'
@@ -42,71 +44,15 @@ interface Conversation {
   online?: boolean
 }
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
-const MOCK_MEMBERS: ChatMember[] = [
-  { id: 'm1', name: 'Sarah Johnson',   role: 'QA Engineer',      online: true  },
-  { id: 'm2', name: 'Mike Chen',       role: 'Developer',        online: true  },
-  { id: 'm3', name: 'Emma Davis',      role: 'Project Manager',  online: false },
-  { id: 'm4', name: 'Alex Rodriguez',  role: 'Business Analyst', online: true  },
-  { id: 'm5', name: 'Priya Sharma',    role: 'Designer',         online: false },
-  { id: 'm6', name: 'James Wilson',    role: 'Developer',        online: true  },
-]
-
-const INITIAL_CONVERSATIONS: Conversation[] = [
-  {
-    id: 'c1', type: 'group', name: 'QA Team',
-    members: [MOCK_MEMBERS[0], MOCK_MEMBERS[1], MOCK_MEMBERS[3]],
-    unread: 3, lastMessage: 'Can everyone review the test cases by EOD?', lastTime: '2m ago',
-    messages: [
-      { id: 'msg1', senderId: 'm1', senderName: 'Sarah Johnson', text: 'Hey team, just pushed the latest test cases for the login flow.', time: '10:02 AM', date: 'Today', isOwn: false },
-      { id: 'msg2', senderId: 'me', senderName: 'You', text: 'Looks good Sarah! I will start reviewing them now.', time: '10:05 AM', date: 'Today', isOwn: true },
-      { id: 'msg3', senderId: 'm2', senderName: 'Mike Chen', text: 'I have a question about TC-004 — should we cover the edge case for expired tokens?', time: '10:08 AM', date: 'Today', isOwn: false },
-      { id: 'msg4', senderId: 'm1', senderName: 'Sarah Johnson', text: 'Yes, definitely. I will add that as a separate scenario.', time: '10:10 AM', date: 'Today', isOwn: false },
-      { id: 'msg5', senderId: 'm4', senderName: 'Alex Rodriguez', text: 'Can everyone review the test cases by EOD?', time: '10:14 AM', date: 'Today', isOwn: false },
-    ],
-  },
-  {
-    id: 'c2', type: 'project', name: 'E-commerce Platform', projectName: 'E-commerce Platform',
-    members: [MOCK_MEMBERS[0], MOCK_MEMBERS[1], MOCK_MEMBERS[2], MOCK_MEMBERS[3]],
-    unread: 0, lastMessage: 'Sprint planning is tomorrow at 10 AM.', lastTime: '1h ago',
-    messages: [
-      { id: 'msg1', senderId: 'm3', senderName: 'Emma Davis', text: 'Welcome to the E-commerce Platform project chat! Use this to coordinate on all project-related updates.', time: '9:00 AM', date: 'Yesterday', isOwn: false },
-      { id: 'msg2', senderId: 'me', senderName: 'You', text: 'Thanks Emma! Great to have a dedicated space for this.', time: '9:05 AM', date: 'Yesterday', isOwn: true },
-      { id: 'msg3', senderId: 'm1', senderName: 'Sarah Johnson', text: 'I have completed the smoke test suite for the checkout flow.', time: '3:30 PM', date: 'Yesterday', isOwn: false },
-      { id: 'msg4', senderId: 'm3', senderName: 'Emma Davis', text: 'Sprint planning is tomorrow at 10 AM.', time: '4:00 PM', date: 'Yesterday', isOwn: false },
-    ],
-  },
-  {
-    id: 'c3', type: 'direct', name: 'Sarah Johnson', online: true,
-    members: [MOCK_MEMBERS[0]],
-    unread: 1, lastMessage: 'Did you check the RTM updates?', lastTime: '30m ago',
-    messages: [
-      { id: 'msg1', senderId: 'm1', senderName: 'Sarah Johnson', text: 'Hey! Do you have a minute to go over the test plan?', time: '11:00 AM', date: 'Today', isOwn: false },
-      { id: 'msg2', senderId: 'me', senderName: 'You', text: 'Sure, give me 5 minutes.', time: '11:02 AM', date: 'Today', isOwn: true },
-      { id: 'msg3', senderId: 'm1', senderName: 'Sarah Johnson', text: 'Did you check the RTM updates?', time: '11:30 AM', date: 'Today', isOwn: false },
-    ],
-  },
-  {
-    id: 'c4', type: 'direct', name: 'Mike Chen', online: true,
-    members: [MOCK_MEMBERS[1]],
-    unread: 0, lastMessage: 'The build is ready for testing.', lastTime: '2h ago',
-    messages: [
-      { id: 'msg1', senderId: 'me', senderName: 'You', text: 'Mike, is the API endpoint for user auth ready?', time: '9:00 AM', date: 'Today', isOwn: true },
-      { id: 'msg2', senderId: 'm2', senderName: 'Mike Chen', text: 'Yes, just deployed it. Endpoint is /api/auth/login', time: '9:15 AM', date: 'Today', isOwn: false },
-      { id: 'msg3', senderId: 'm2', senderName: 'Mike Chen', text: 'The build is ready for testing.', time: '9:45 AM', date: 'Today', isOwn: false },
-    ],
-  },
-  {
-    id: 'c5', type: 'group', name: 'Design & Dev Sync',
-    members: [MOCK_MEMBERS[1], MOCK_MEMBERS[4], MOCK_MEMBERS[5]],
-    unread: 0, lastMessage: 'Updated the Figma components.', lastTime: 'Yesterday',
-    messages: [
-      { id: 'msg1', senderId: 'm5', senderName: 'Priya Sharma', text: 'Updated the Figma components for the dashboard redesign.', time: '2:00 PM', date: 'Yesterday', isOwn: false },
-      { id: 'msg2', senderId: 'm2', senderName: 'Mike Chen', text: 'Looks clean! I will start implementing.', time: '2:30 PM', date: 'Yesterday', isOwn: false },
-      { id: 'msg3', senderId: 'me', senderName: 'You', text: 'Great work Priya!', time: '3:00 PM', date: 'Yesterday', isOwn: true },
-    ],
-  },
-]
+// ── Converters ────────────────────────────────────────────────────────────────
+function toMember(m: TeamMemberRecord): ChatMember {
+  return {
+    id: String(m.id),
+    name: m.fullName,
+    role: ROLE_LABELS[m.role] ?? m.role,
+    online: m.status === 'online',
+  }
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 const initials = (name: string) =>
@@ -117,8 +63,7 @@ const avatarColor = (name: string) => {
     'bg-blue-600', 'bg-emerald-600', 'bg-purple-600',
     'bg-rose-600', 'bg-amber-600', 'bg-cyan-600', 'bg-indigo-600',
   ]
-  const i = name.charCodeAt(0) % colors.length
-  return colors[i]
+  return colors[name.charCodeAt(0) % colors.length]
 }
 
 function Avatar({ name, size = 'md', online }: { name: string; size?: 'sm' | 'md' | 'lg'; online?: boolean }) {
@@ -135,22 +80,92 @@ function Avatar({ name, size = 'md', online }: { name: string; size?: 'sm' | 'md
   )
 }
 
+// ── Modal Shell ───────────────────────────────────────────────────────────────
+function ModalShell({ title, icon, onClose, children }: { title: string; icon: React.ReactNode; onClose: () => void; children: React.ReactNode }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
+      <div className="w-full max-w-md bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-primary-600/15 flex items-center justify-center">{icon}</div>
+            <h2 className="text-base font-semibold text-white">{title}</h2>
+          </div>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">{children}</div>
+      </div>
+    </div>
+  )
+}
+
+// ── Member Picker (shared) ────────────────────────────────────────────────────
+function MemberPicker({
+  members, selected, onToggle, loading, label,
+}: {
+  members: ChatMember[]
+  selected: string[]
+  onToggle: (id: string) => void
+  loading: boolean
+  label: string
+}) {
+  const [search, setSearch] = useState('')
+  const filtered = members.filter(
+    (m) => m.name.toLowerCase().includes(search.toLowerCase()) || m.role.toLowerCase().includes(search.toLowerCase())
+  )
+
+  return (
+    <div className="space-y-2">
+      <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
+        {label} <span className="ml-2 text-slate-600 normal-case font-normal">{selected.length} selected</span>
+      </label>
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+        <input
+          type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search members..."
+          className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
+        />
+      </div>
+      <div className="max-h-52 overflow-y-auto space-y-1 pr-0.5">
+        {loading ? (
+          <div className="flex items-center justify-center py-8 gap-2 text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading members…
+          </div>
+        ) : filtered.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center py-6">No members found</p>
+        ) : filtered.map((m) => {
+          const checked = selected.includes(m.id)
+          return (
+            <button key={m.id} type="button" onClick={() => onToggle(m.id)}
+              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${checked ? 'bg-primary-600/15 border-primary-600/40' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}`}>
+              <Avatar name={m.name} size="sm" online={m.online} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-white truncate">{m.name}</p>
+                <p className="text-xs text-slate-400 truncate">{m.role}</p>
+              </div>
+              <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-primary-600 border-primary-600' : 'border-slate-600'}`}>
+                {checked && <Check className="w-3 h-3 text-white" />}
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ── New Group Chat Modal ───────────────────────────────────────────────────────
 interface NewGroupModalProps {
+  members: ChatMember[]
+  loadingMembers: boolean
   onClose: () => void
   onCreated: (conv: Conversation) => void
 }
 
-function NewGroupModal({ onClose, onCreated }: NewGroupModalProps) {
+function NewGroupModal({ members, loadingMembers, onClose, onCreated }: NewGroupModalProps) {
   const [groupName, setGroupName] = useState('')
   const [selected, setSelected] = useState<string[]>([])
-  const [search, setSearch] = useState('')
   const [error, setError] = useState('')
-
-  const filtered = MOCK_MEMBERS.filter((m) =>
-    m.name.toLowerCase().includes(search.toLowerCase()) ||
-    m.role.toLowerCase().includes(search.toLowerCase())
-  )
 
   const toggle = (id: string) =>
     setSelected((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
@@ -158,12 +173,15 @@ function NewGroupModal({ onClose, onCreated }: NewGroupModalProps) {
   const handleCreate = () => {
     if (!groupName.trim()) { setError('Group name is required'); return }
     if (selected.length < 2) { setError('Select at least 2 members'); return }
-    const members = MOCK_MEMBERS.filter((m) => selected.includes(m.id))
+    const chosenMembers = members.filter((m) => selected.includes(m.id))
     const conv: Conversation = {
       id: `grp-${Date.now()}`, type: 'group',
-      name: groupName.trim(), members,
+      name: groupName.trim(), members: chosenMembers,
       unread: 0, lastMessage: 'Group created', lastTime: 'now',
-      messages: [{ id: 'sys', senderId: 'system', senderName: 'System', text: `Group "${groupName.trim()}" was created.`, time: 'now', date: 'Today', isOwn: false }],
+      messages: [{
+        id: 'sys', senderId: 'system', senderName: 'System',
+        text: `Group "${groupName.trim()}" was created.`, time: 'now', date: 'Today', isOwn: false,
+      }],
     }
     onCreated(conv)
   }
@@ -182,37 +200,7 @@ function NewGroupModal({ onClose, onCreated }: NewGroupModalProps) {
           />
         </div>
       </div>
-      <div className="space-y-2">
-        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          Add Members <span className="ml-2 text-slate-600 normal-case font-normal">{selected.length} selected</span>
-        </label>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search members..."
-            className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-          />
-        </div>
-        <div className="max-h-48 overflow-y-auto space-y-1 pr-0.5">
-          {filtered.map((m) => {
-            const checked = selected.includes(m.id)
-            return (
-              <button key={m.id} type="button" onClick={() => toggle(m.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${checked ? 'bg-primary-600/15 border-primary-600/40' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}`}>
-                <Avatar name={m.name} size="sm" online={m.online} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{m.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{m.role}</p>
-                </div>
-                <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-primary-600 border-primary-600' : 'border-slate-600'}`}>
-                  {checked && <Check className="w-3 h-3 text-white" />}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      <MemberPicker members={members} selected={selected} onToggle={toggle} loading={loadingMembers} label="Add Members" />
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
         <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-lg transition-colors hover:border-slate-600">Cancel</button>
         <button onClick={handleCreate} className="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-500 rounded-lg transition-colors">Create Group</button>
@@ -223,28 +211,33 @@ function NewGroupModal({ onClose, onCreated }: NewGroupModalProps) {
 
 // ── New Project Chat Modal ────────────────────────────────────────────────────
 interface NewProjectChatModalProps {
+  members: ChatMember[]
+  loadingMembers: boolean
   onClose: () => void
   onCreated: (conv: Conversation) => void
 }
 
-function NewProjectChatModal({ onClose, onCreated }: NewProjectChatModalProps) {
+function NewProjectChatModal({ members, loadingMembers, onClose, onCreated }: NewProjectChatModalProps) {
   const { projects } = useProjectContext()
   const [selectedProject, setSelectedProject] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [error, setError] = useState('')
 
-  const toggleMember = (id: string) =>
+  const toggle = (id: string) =>
     setSelectedMembers((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
 
   const handleCreate = () => {
     if (!selectedProject) { setError('Please select a project'); return }
     if (selectedMembers.length === 0) { setError('Select at least 1 member'); return }
-    const members = MOCK_MEMBERS.filter((m) => selectedMembers.includes(m.id))
+    const chosenMembers = members.filter((m) => selectedMembers.includes(m.id))
     const conv: Conversation = {
       id: `proj-${Date.now()}`, type: 'project',
-      name: selectedProject, projectName: selectedProject, members,
+      name: selectedProject, projectName: selectedProject, members: chosenMembers,
       unread: 0, lastMessage: 'Project chat created', lastTime: 'now',
-      messages: [{ id: 'sys', senderId: 'system', senderName: 'System', text: `Project chat for "${selectedProject}" was created.`, time: 'now', date: 'Today', isOwn: false }],
+      messages: [{
+        id: 'sys', senderId: 'system', senderName: 'System',
+        text: `Project chat for "${selectedProject}" was created.`, time: 'now', date: 'Today', isOwn: false,
+      }],
     }
     onCreated(conv)
   }
@@ -260,34 +253,14 @@ function NewProjectChatModal({ onClose, onCreated }: NewProjectChatModalProps) {
             className="w-full pl-9 pr-8 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm appearance-none focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500">
             <option value="">— Select a project —</option>
             {projects.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
-            {projects.length === 0 && <option value="E-commerce Platform">E-commerce Platform (demo)</option>}
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
         </div>
+        {projects.length === 0 && (
+          <p className="text-xs text-slate-500">No projects found. Create a project first.</p>
+        )}
       </div>
-      <div className="space-y-2">
-        <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
-          Add Members <span className="ml-2 text-slate-600 normal-case font-normal">{selectedMembers.length} selected</span>
-        </label>
-        <div className="max-h-52 overflow-y-auto space-y-1 pr-0.5">
-          {MOCK_MEMBERS.map((m) => {
-            const checked = selectedMembers.includes(m.id)
-            return (
-              <button key={m.id} type="button" onClick={() => toggleMember(m.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg border text-left transition-colors ${checked ? 'bg-primary-600/15 border-primary-600/40' : 'bg-slate-900 border-slate-800 hover:border-slate-700'}`}>
-                <Avatar name={m.name} size="sm" online={m.online} />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{m.name}</p>
-                  <p className="text-xs text-slate-400 truncate">{m.role}</p>
-                </div>
-                <div className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 transition-colors ${checked ? 'bg-primary-600 border-primary-600' : 'border-slate-600'}`}>
-                  {checked && <Check className="w-3 h-3 text-white" />}
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      <MemberPicker members={members} selected={selectedMembers} onToggle={toggle} loading={loadingMembers} label="Add Members" />
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
         <button onClick={onClose} className="px-4 py-2 text-sm text-slate-400 hover:text-white border border-slate-700 rounded-lg transition-colors hover:border-slate-600">Cancel</button>
         <button onClick={handleCreate} className="px-4 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-500 rounded-lg transition-colors">Create Chat</button>
@@ -298,14 +271,16 @@ function NewProjectChatModal({ onClose, onCreated }: NewProjectChatModalProps) {
 
 // ── New DM Modal ───────────────────────────────────────────────────────────────
 interface NewDMModalProps {
+  members: ChatMember[]
+  loadingMembers: boolean
+  existingDMs: string[]
   onClose: () => void
   onCreated: (conv: Conversation) => void
-  existingDMs: string[]
 }
 
-function NewDMModal({ onClose, onCreated, existingDMs }: NewDMModalProps) {
+function NewDMModal({ members, loadingMembers, existingDMs, onClose, onCreated }: NewDMModalProps) {
   const [search, setSearch] = useState('')
-  const available = MOCK_MEMBERS.filter(
+  const available = members.filter(
     (m) => !existingDMs.includes(m.name) && m.name.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -331,8 +306,12 @@ function NewDMModal({ onClose, onCreated, existingDMs }: NewDMModalProps) {
         />
       </div>
       <div className="space-y-1 max-h-64 overflow-y-auto pr-0.5">
-        {available.length === 0 ? (
-          <p className="text-sm text-slate-500 text-center py-6">No members found</p>
+        {loadingMembers ? (
+          <div className="flex items-center justify-center py-8 gap-2 text-slate-500">
+            <Loader2 className="w-4 h-4 animate-spin" /> Loading members…
+          </div>
+        ) : available.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center py-6">No members available</p>
         ) : available.map((m) => (
           <button key={m.id} type="button" onClick={() => handleSelect(m)}
             className="w-full flex items-center gap-3 px-3 py-3 rounded-xl border border-slate-800 bg-slate-900 hover:border-primary-600/40 hover:bg-primary-900/10 transition-colors text-left">
@@ -351,25 +330,7 @@ function NewDMModal({ onClose, onCreated, existingDMs }: NewDMModalProps) {
   )
 }
 
-// ── Modal Shell ───────────────────────────────────────────────────────────────
-function ModalShell({ title, icon, onClose, children }: { title: string; icon: React.ReactNode; onClose: () => void; children: React.ReactNode }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
-      <div className="w-full max-w-md bg-slate-950 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-6 py-4 border-b border-slate-800">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary-600/15 flex items-center justify-center">{icon}</div>
-            <h2 className="text-base font-semibold text-white">{title}</h2>
-          </div>
-          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">{children}</div>
-      </div>
-    </div>
-  )
-}
-
-// ── Conversation Item ─────────────────────────────────────────────────────────
+// ── Conversation List Item ────────────────────────────────────────────────────
 function ConvItem({ conv, active, onClick }: { conv: Conversation; active: boolean; onClick: () => void }) {
   const isGroup = conv.type !== 'direct'
   return (
@@ -563,7 +524,7 @@ function ChatWindow({ conv, onSend, onBack }: { conv: Conversation; onSend: (tex
             <Send className="w-4 h-4" />
           </button>
         </div>
-        <p className="text-[10px] text-slate-600 mt-2 ml-11">Press Enter to send, Shift+Enter for new line</p>
+        <p className="text-[10px] text-slate-600 mt-2 ml-11">Press Enter to send · Shift+Enter for new line</p>
       </div>
     </div>
   )
@@ -574,12 +535,50 @@ type ModalType = 'group' | 'project' | 'dm' | null
 type FilterTab = 'all' | 'groups' | 'direct'
 
 export default function ChatPage() {
-  const [conversations, setConversations] = useState<Conversation[]>(INITIAL_CONVERSATIONS)
-  const [activeId, setActiveId] = useState<string | null>('c1')
+  const [conversations, setConversations] = useState<Conversation[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [modal, setModal] = useState<ModalType>(null)
   const [filter, setFilter] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
   const [showList, setShowList] = useState(true)
+
+  // Dynamic team members from backend
+  const [teamMembers, setTeamMembers] = useState<ChatMember[]>([])
+  const [loadingMembers, setLoadingMembers] = useState(true)
+
+  const loadMembers = useCallback(async () => {
+    setLoadingMembers(true)
+    try {
+      const data = await teamService.getDashboard()
+      setTeamMembers(data.members.map(toMember))
+
+      // Seed initial conversations from real members if no conversations yet
+      if (conversations.length === 0 && data.members.length > 0) {
+        const members = data.members.map(toMember)
+        const initial: Conversation[] = []
+
+        // Create a general group chat from all members
+        if (members.length >= 2) {
+          initial.push({
+            id: 'c-general', type: 'group', name: 'General',
+            members, unread: 0, lastMessage: 'Welcome to the team chat!', lastTime: 'now',
+            messages: [{
+              id: 'sys-0', senderId: 'system', senderName: 'System',
+              text: 'Welcome to General — your team hub for all updates.', time: 'now', date: 'Today', isOwn: false,
+            }],
+          })
+        }
+        setConversations(initial)
+        if (initial.length > 0) setActiveId(initial[0].id)
+      }
+    } catch {
+      // silently keep state — team API may not be reachable
+    } finally {
+      setLoadingMembers(false)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { void loadMembers() }, [loadMembers])
 
   const activeConv = conversations.find((c) => c.id === activeId) ?? null
 
@@ -620,6 +619,7 @@ export default function ChatPage() {
 
   const existingDMs = conversations.filter((c) => c.type === 'direct').map((c) => c.name)
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0)
+  const onlineCount = teamMembers.filter((m) => m.online).length
 
   return (
     <Layout>
@@ -635,7 +635,6 @@ export default function ChatPage() {
               )}
             </h1>
           </div>
-          {/* Create buttons */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setModal('dm')}
@@ -674,7 +673,7 @@ export default function ChatPage() {
               </div>
             </div>
 
-            {/* Tabs */}
+            {/* Filter tabs */}
             <div className="flex border-b border-slate-800 px-1">
               {(['all', 'groups', 'direct'] as const).map((tab) => (
                 <button key={tab} onClick={() => setFilter(tab)}
@@ -686,33 +685,46 @@ export default function ChatPage() {
 
             {/* Conversation list */}
             <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
-              {filtered.length === 0 ? (
+              {loadingMembers && conversations.length === 0 ? (
+                <div className="flex items-center justify-center py-12 gap-2 text-slate-500">
+                  <Loader2 className="w-4 h-4 animate-spin" /> Loading…
+                </div>
+              ) : filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
                   <MessageSquare className="w-8 h-8 text-slate-700" />
-                  <p className="text-sm text-slate-500">No conversations found</p>
+                  <p className="text-sm text-slate-500">
+                    {conversations.length === 0 ? 'No conversations yet' : 'No results found'}
+                  </p>
+                  {conversations.length === 0 && (
+                    <button onClick={() => setModal('group')} className="text-xs text-primary-400 hover:text-primary-300 underline">
+                      Start a group chat
+                    </button>
+                  )}
                 </div>
               ) : filtered.map((conv) => (
                 <ConvItem key={conv.id} conv={conv} active={activeId === conv.id} onClick={() => handleSelect(conv.id)} />
               ))}
             </div>
 
-            {/* Sidebar Footer */}
+            {/* Sidebar footer — online count from live data */}
             <div className="p-3 border-t border-slate-800">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                {MOCK_MEMBERS.filter((m) => m.online).length} team members online
-              </div>
+              {loadingMembers ? (
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <Loader2 className="w-3 h-3 animate-spin" /> Fetching team status…
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                  {onlineCount} of {teamMembers.length} team members online
+                </div>
+              )}
             </div>
           </div>
 
           {/* ── Chat Window ── */}
           <div className={`flex-1 min-w-0 ${showList && !activeConv ? 'hidden lg:flex' : 'flex'} flex-col`}>
             {activeConv ? (
-              <ChatWindow
-                conv={activeConv}
-                onSend={handleSend}
-                onBack={() => setShowList(true)}
-              />
+              <ChatWindow conv={activeConv} onSend={handleSend} onBack={() => setShowList(true)} />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
                 <div className="w-20 h-20 rounded-2xl bg-primary-600/10 border border-primary-600/20 flex items-center justify-center">
@@ -721,7 +733,7 @@ export default function ChatPage() {
                 <div>
                   <h3 className="text-lg font-semibold text-white">Your messages</h3>
                   <p className="text-sm text-slate-400 mt-1 max-w-xs">
-                    Select a conversation from the sidebar or create a new one to start chatting.
+                    Select a conversation or create a new one to start chatting with your team.
                   </p>
                 </div>
                 <div className="flex items-center gap-2 mt-2">
@@ -739,9 +751,15 @@ export default function ChatPage() {
       </div>
 
       {/* Modals */}
-      {modal === 'group'   && <NewGroupModal      onClose={() => setModal(null)} onCreated={handleCreated} />}
-      {modal === 'project' && <NewProjectChatModal onClose={() => setModal(null)} onCreated={handleCreated} />}
-      {modal === 'dm'      && <NewDMModal          onClose={() => setModal(null)} onCreated={handleCreated} existingDMs={existingDMs} />}
+      {modal === 'group' && (
+        <NewGroupModal members={teamMembers} loadingMembers={loadingMembers} onClose={() => setModal(null)} onCreated={handleCreated} />
+      )}
+      {modal === 'project' && (
+        <NewProjectChatModal members={teamMembers} loadingMembers={loadingMembers} onClose={() => setModal(null)} onCreated={handleCreated} />
+      )}
+      {modal === 'dm' && (
+        <NewDMModal members={teamMembers} loadingMembers={loadingMembers} existingDMs={existingDMs} onClose={() => setModal(null)} onCreated={handleCreated} />
+      )}
     </Layout>
   )
 }

@@ -44,8 +44,9 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
 export function getUserModules(user: User | null): ModuleKey[] {
   if (!user) return ['dashboard']
   if (user.modules && user.modules.length > 0) return user.modules
-  if (user.role) return DEFAULT_MODULES_BY_ROLE[user.role] ?? ['dashboard', 'settings']
-  return ['dashboard', 'settings']
+  if (user.role) return DEFAULT_MODULES_BY_ROLE[user.role] ?? ALL_MODULES
+  // Authenticated user with unknown role — show everything (backend enforces real access)
+  return ALL_MODULES
 }
 
 /** True if the user can see a specific module in the nav */
