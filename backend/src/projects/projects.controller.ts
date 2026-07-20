@@ -117,29 +117,32 @@ export class ProjectsController {
   @Post(':projectId/user-stories')
   @ApiOperation({ summary: 'Create a user story for a project' })
   async createUserStory(
+    @Req() req: AuthenticatedRequest,
     @Param('projectId', ParseIntPipe) projectId: number,
     @Body() body: CreateUserStoryDto,
   ) {
-    return this.projectsService.createUserStory(projectId, body);
+    return this.projectsService.createUserStory(projectId, body, req.user!.id);
   }
 
   @Patch(':projectId/user-stories/:storyId')
   @ApiOperation({ summary: 'Update a user story for a project' })
   async updateUserStory(
+    @Req() req: AuthenticatedRequest,
     @Param('projectId', ParseIntPipe) projectId: number,
     @Param('storyId', ParseIntPipe) storyId: number,
     @Body() body: UpdateUserStoryDto,
   ) {
-    return this.projectsService.updateUserStory(projectId, storyId, body);
+    return this.projectsService.updateUserStory(projectId, storyId, body, req.user!.id);
   }
 
   @Delete(':projectId/user-stories/:storyId')
   @ApiOperation({ summary: 'Delete a user story from a project' })
   async deleteUserStory(
+    @Req() req: AuthenticatedRequest,
     @Param('projectId', ParseIntPipe) projectId: number,
     @Param('storyId', ParseIntPipe) storyId: number,
   ) {
-    await this.projectsService.deleteUserStory(projectId, storyId);
+    await this.projectsService.deleteUserStory(projectId, storyId, req.user!.id);
     return { message: 'User story deleted successfully' };
   }
 

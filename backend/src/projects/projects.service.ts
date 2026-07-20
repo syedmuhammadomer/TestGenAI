@@ -13,6 +13,9 @@ import { Project, ProjectStatus } from './entities/project.entity';
 import { RtmEntry } from './entities/rtm.entity';
 import { TestCase } from './entities/test-case.entity';
 import { UserStory } from './entities/user-story.entity';
+import { User } from '../auth/user.entity';
+import { TeamMember } from '../team/entities/team-member.entity';
+import { TeamActivity } from '../team/entities/team-activity.entity';
 
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'srs');
 
@@ -27,6 +30,12 @@ export class ProjectsService {
     private readonly projectRepository: Repository<Project>,
     @InjectRepository(UserStory)
     private readonly userStoryRepository: Repository<UserStory>,
+    @InjectRepository(User)
+    private readonly userRepository: Repository<User>,
+    @InjectRepository(TeamMember)
+    private readonly teamMemberRepository: Repository<TeamMember>,
+    @InjectRepository(TeamActivity)
+    private readonly teamActivityRepository: Repository<TeamActivity>,
   ) {
     if (!existsSync(UPLOAD_DIR)) {
       mkdirSync(UPLOAD_DIR, { recursive: true });
@@ -42,6 +51,10 @@ export class ProjectsService {
       userId,
     });
     await this.projectRepository.save(project);
+    if (userId) {
+      const actor = await this.getActorName(userId);
+      void this.logActivity(actor, `created project "${projectName}"`);
+    }
     // Processed in the background within this same process - no external queue/worker required.
     void this.processProject(project.id).catch((error) => {
       this.logger.error(`Project ${project.id} processing crashed`, error?.stack || error);
@@ -50,23 +63,77 @@ export class ProjectsService {
   }
 
   async listProjects(userId: number) {
+    const assignedProjectName = await this.getAssignedProjectName(userId);
+
+    const where: object[] = [{ userId }];
+    if (assignedProjectName) {
+      where.push({ name: assignedProjectName });
+    }
+
     const projects = await this.projectRepository.find({
-      where: { userId },
+      where,
       relations: ['features', 'userStories', 'testCases', 'rtm'],
       order: { createdAt: 'DESC' },
     });
-    return projects.map((p) => this.enrichFromAiResponse(p));
+
+    // Deduplicate in case a user owns a project they're also assigned to
+    const seen = new Set<number>();
+    const unique = projects.filter((p) => {
+      if (seen.has(p.id)) return false;
+      seen.add(p.id);
+      return true;
+    });
+
+    return unique.map((p) => this.enrichFromAiResponse(p));
   }
 
   async getProject(projectId: number, userId: number) {
     const project = await this.projectRepository.findOne({
-      where: { id: projectId, userId },
+      where: { id: projectId },
       relations: ['features', 'userStories', 'testCases', 'rtm'],
     });
     if (!project) {
       throw new NotFoundException('Project not found');
     }
-    return this.enrichFromAiResponse(project);
+
+    // Owner always has access
+    if (project.userId === userId) {
+      return this.enrichFromAiResponse(project);
+    }
+
+    // Team members can access their assigned project
+    const assignedProjectName = await this.getAssignedProjectName(userId);
+    if (assignedProjectName && project.name === assignedProjectName) {
+      return this.enrichFromAiResponse(project);
+    }
+
+    throw new NotFoundException('Project not found');
+  }
+
+  /**
+   * Looks up the project name assigned to a user via their TeamMember record.
+   * Returns null if the user has no TeamMember record or no assigned project.
+   */
+  private async getAssignedProjectName(userId: number): Promise<string | null> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) return null;
+    const member = await this.teamMemberRepository.findOne({ where: { email: user.email } });
+    return member?.project ?? null;
+  }
+
+  private async getActorName(userId: number): Promise<string> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) return 'Unknown';
+    return `${user.firstName} ${user.lastName}`.trim();
+  }
+
+  private async logActivity(actor: string, action: string): Promise<void> {
+    try {
+      const entry = this.teamActivityRepository.create({ actor, action, timeLabel: 'Just now' });
+      await this.teamActivityRepository.save(entry);
+    } catch (err) {
+      this.logger.warn(`Failed to log team activity: ${err}`);
+    }
   }
 
   /**
@@ -97,6 +164,8 @@ export class ProjectsService {
       throw new NotFoundException('Project not found');
     }
     await this.projectRepository.remove(project);
+    const actor = await this.getActorName(userId);
+    void this.logActivity(actor, `deleted project "${project.name}"`);
   }
 
   async listUserStories(projectId: number) {
@@ -119,6 +188,7 @@ export class ProjectsService {
   async createUserStory(
     projectId: number,
     dto: { actor?: string; goal: string; benefit?: string; acceptanceCriteria?: string },
+    userId?: number,
   ) {
     const project = await this.projectRepository.findOne({ where: { id: projectId } });
     if (!project) {
@@ -133,29 +203,45 @@ export class ProjectsService {
       source: 'manual',
       project,
     });
-    return this.userStoryRepository.save(story);
+    const saved = await this.userStoryRepository.save(story);
+    if (userId) {
+      const actorName = await this.getActorName(userId);
+      void this.logActivity(actorName, `added a user story to project "${project.name}"`);
+    }
+    return saved;
   }
 
   async updateUserStory(
     projectId: number,
     storyId: number,
     dto: { actor?: string; goal?: string; benefit?: string; acceptanceCriteria?: string },
+    userId?: number,
   ) {
-    const story = await this.userStoryRepository.findOne({ where: { id: storyId, project: { id: projectId } } });
+    const story = await this.userStoryRepository.findOne({ where: { id: storyId, project: { id: projectId } }, relations: ['project'] });
     if (!story) {
       throw new NotFoundException('User story not found');
     }
 
     Object.assign(story, dto);
-    return this.userStoryRepository.save(story);
+    const saved = await this.userStoryRepository.save(story);
+    if (userId) {
+      const actorName = await this.getActorName(userId);
+      void this.logActivity(actorName, `updated a user story in project "${story.project?.name ?? projectId}"`);
+    }
+    return saved;
   }
 
-  async deleteUserStory(projectId: number, storyId: number) {
-    const story = await this.userStoryRepository.findOne({ where: { id: storyId, project: { id: projectId } } });
+  async deleteUserStory(projectId: number, storyId: number, userId?: number) {
+    const story = await this.userStoryRepository.findOne({ where: { id: storyId, project: { id: projectId } }, relations: ['project'] });
     if (!story) {
       throw new NotFoundException('User story not found');
     }
+    const projectName = story.project?.name ?? String(projectId);
     await this.userStoryRepository.remove(story);
+    if (userId) {
+      const actorName = await this.getActorName(userId);
+      void this.logActivity(actorName, `removed a user story from project "${projectName}"`);
+    }
   }
 
   private async processProject(projectId: number) {
