@@ -420,17 +420,16 @@ export class ProjectsService {
   }
 
   private async callOpenAi(text: string, projectName: string) {
-    // Truncate to ~12 000 chars to stay well within context limits
-    // Tight input budget so the model has maximum room for output
-    const truncated = text.length > 5000 ? text.slice(0, 5000) + '\n[...truncated...]' : text;
+    // Send as much SRS content as possible to maximise AI output coverage
+    const truncated = text.length > 30000 ? text.slice(0, 30000) + '\n[...truncated...]' : text;
     const model = this.configService.get<string>('NVIDIA_MODEL') || 'meta/llama-3.1-70b-instruct';
     this.logger.log(`Calling AI model: ${model}`);
 
     const controller = new AbortController();
     const hardTimer = setTimeout(() => {
-      this.logger.warn(`AI call hard-timeout after 180 s [model=${model}]`);
+      this.logger.warn(`AI call hard-timeout after 300 s [model=${model}]`);
       controller.abort();
-    }, 180000);
+    }, 300000);
 
     try {
       const response = await this.getOpenAiClient().chat.completions.create(
@@ -440,15 +439,15 @@ export class ProjectsService {
             {
               role: 'system',
               content:
-                'You are a requirements analyst. Output ONLY a raw JSON object — absolutely no markdown, no ```json fences, no explanation. Schema: {"features":[{"title":"string","description":"string"}],"userStories":[{"actor":"string","goal":"string","benefit":"string","acceptanceCriteria":"string"}],"testCases":[{"testCaseId":"TC-1","title":"string","preconditions":"string","steps":"string","expectedResult":"string"}],"rtm":[{"requirementId":"REQ-1","description":"string","linkedUserStories":["US-1"],"linkedTestCases":["TC-1"]}],"analytics":{"totalFeatures":0,"totalUserStories":0,"totalTestCases":0,"totalRequirements":0,"coverageSummary":"string","riskAreas":["string"]}}. STRICT LIMITS: max 5 items per array, max 60 chars per string value. Close every bracket. Valid JSON only.',
+                'You are a senior requirements analyst. Output ONLY a raw JSON object — absolutely no markdown, no ```json fences, no explanation. Schema: {"features":[{"title":"string","description":"string"}],"userStories":[{"actor":"string","goal":"string","benefit":"string","acceptanceCriteria":"string"}],"testCases":[{"testCaseId":"TC-1","title":"string","preconditions":"string","steps":"string","expectedResult":"string"}],"rtm":[{"requirementId":"REQ-1","description":"string","linkedUserStories":["US-1"],"linkedTestCases":["TC-1"]}],"analytics":{"totalFeatures":0,"totalUserStories":0,"totalTestCases":0,"totalRequirements":0,"coverageSummary":"string","riskAreas":["string"]}}. Extract EVERY feature, user story, test case, and requirement you can identify from the SRS — do not limit the number of items. For test cases cover happy paths, edge cases, negative cases, and boundary conditions. For user stories cover every actor and every goal. Close every bracket. Valid JSON only.',
             },
             {
               role: 'user',
-              content: `Project: ${projectName}\n\nSRS Content:\n${truncated}\n\nReturn the JSON object now:`,
+              content: `Project: ${projectName}\n\nSRS Content:\n${truncated}\n\nAnalyse the full document and return a comprehensive JSON object with as many features, user stories, test cases, and RTM entries as the document supports:`,
             },
           ],
           temperature: 0.1,
-          max_tokens: 4096,
+          max_tokens: 16384,
           stream: false,
         },
         { signal: controller.signal },
