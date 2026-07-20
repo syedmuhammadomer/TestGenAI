@@ -10,6 +10,7 @@ import Layout from '@/components/Layout'
 import Button from '@/components/Button'
 import { ProjectRecord, useProjectContext } from '@/context/ProjectContext'
 import { config } from '@/utils/config'
+import { teamService, TeamActivityRecord } from '@/services/teamService'
 
 interface DashboardStats {
   totalProjects: number
@@ -35,21 +36,6 @@ interface TeamActivity {
   timestamp: string
 }
 
-// Mock data for dashboard
-const mockRecentActivity: RecentActivity[] = [
-  { id: '1', type: 'project', title: 'Created new project: E-commerce Platform', timestamp: '2 hours ago', status: 'success' },
-  { id: '2', type: 'test', title: 'Generated 45 test cases for login flow', timestamp: '4 hours ago', status: 'success' },
-  { id: '3', type: 'scenario', title: 'AI generated checkout scenarios', timestamp: '6 hours ago', status: 'warning' },
-  { id: '4', type: 'requirement', title: 'Processed user authentication requirements', timestamp: '1 day ago', status: 'success' },
-  { id: '5', type: 'project', title: 'Failed to generate test cases for complex workflow', timestamp: '1 day ago', status: 'error' },
-]
-
-const mockTeamActivity: TeamActivity[] = [
-  { id: '1', user: 'Sarah Johnson', action: 'completed test case review', timestamp: '30 min ago' },
-  { id: '2', user: 'Mike Chen', action: 'generated 23 new scenarios', timestamp: '1 hour ago' },
-  { id: '3', user: 'Emma Davis', action: 'updated project requirements', timestamp: '2 hours ago' },
-  { id: '4', user: 'Alex Rodriguez', action: 'created new test suite', timestamp: '3 hours ago' },
-]
 
 const kpiTheme: Record<string, { icon: string; bar: string }> = {
   blue: { icon: 'bg-blue-500/10 text-blue-200', bar: 'bg-blue-500' },
@@ -65,9 +51,29 @@ export default function Dashboard() {
   const router = useRouter()
   const [loading, setLoading] = useState(true)
   const [greetingName, setGreetingName] = useState('')
-  const [recentActivity] = useState<RecentActivity[]>(mockRecentActivity)
-  const [teamActivity] = useState<TeamActivity[]>(mockTeamActivity)
+  const [teamActivityData, setTeamActivityData] = useState<TeamActivityRecord[]>([])
   const { projects, selectedProject, setSelectedProjectId, reloadProjects } = useProjectContext()
+
+  const recentActivity = useMemo<RecentActivity[]>(() =>
+    teamActivityData.slice(0, 8).map((a) => ({
+      id: String(a.id),
+      type: 'project' as const,
+      title: `${a.actor} ${a.action}`,
+      timestamp: a.timeLabel,
+      status: (a.action.includes('deleted') || a.action.includes('removed') || a.action.includes('failed'))
+        ? 'error' as const
+        : 'success' as const,
+    })),
+  [teamActivityData])
+
+  const teamActivity = useMemo<TeamActivity[]>(() =>
+    teamActivityData.slice(0, 6).map((a) => ({
+      id: String(a.id),
+      user: a.actor,
+      action: a.action,
+      timestamp: a.timeLabel,
+    })),
+  [teamActivityData])
 
   // New Project Modal State
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
@@ -105,13 +111,17 @@ export default function Dashboard() {
     { label: 'Requirements Processed', value: stats.requirementsProcessed.toLocaleString(), icon: FileText, color: 'orange' },
   ]), [stats])
 
-  const trendData = [
-    { label: 'Week 1', value: Math.max(10, Math.round(stats.totalProjects * 1.5 + 10)) },
-    { label: 'Week 2', value: Math.max(24, Math.round(stats.totalProjects * 2.1 + 18)) },
-    { label: 'Week 3', value: Math.max(38, Math.round(stats.totalProjects * 2.8 + 26)) },
-    { label: 'Week 4', value: Math.max(56, Math.round(stats.totalProjects * 3.5 + 32)) },
-    { label: 'Week 5', value: Math.max(72, Math.round(stats.totalProjects * 4.0 + 40)) },
-  ]
+  // Real weekly trend: cumulative test cases from projects created up to each of the last 5 weeks
+  const trendData = useMemo(() => {
+    const now = new Date()
+    return Array.from({ length: 5 }, (_, i) => {
+      const cutoff = new Date(now)
+      cutoff.setDate(now.getDate() - (4 - i) * 7)
+      const cumulative = projects.filter((p) => p.createdAt && new Date(p.createdAt) <= cutoff)
+      const value = cumulative.reduce((s, p) => s + (p.testCases?.length ?? 0) + (p.userStories?.length ?? 0), 0)
+      return { label: `W${i + 1}`, value }
+    })
+  }, [projects])
 
   const chartMax = Math.max(...trendData.map((point) => point.value), 1)
   const chartPoints = trendData
@@ -153,6 +163,8 @@ export default function Dashboard() {
     setLoading(false)
     // Reload projects now that we know the user is authenticated
     void reloadProjects()
+    // Load real team activity for both activity feeds
+    teamService.getDashboard().then((d) => setTeamActivityData(d.activity)).catch(() => {})
   }, [router, reloadProjects])
 
   useEffect(() => {
