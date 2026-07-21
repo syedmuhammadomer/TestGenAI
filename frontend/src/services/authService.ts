@@ -164,9 +164,15 @@ class AuthService {
       const response = await this.api.post('/auth/verify-otp', { email, otp })
       if (response.data?.token) {
         storage.setToken(response.data.token)
-      }
-      if (response.data?.user) {
-        storage.setUser(response.data.user)
+        // Fetch enriched profile (firstName, lastName, role, modules) and persist it
+        try {
+          const meResponse = await this.api.get('/auth/me')
+          storage.setUser(meResponse.data)
+        } catch {
+          if (response.data?.user) {
+            storage.setUser(response.data.user)
+          }
+        }
       }
       return response.data
     } catch (error) {

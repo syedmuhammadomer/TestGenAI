@@ -44,7 +44,7 @@ export default function Layout({ children }: LayoutProps) {
     if (userData) {
       try { return JSON.parse(userData) } catch { /* ignore */ }
     }
-    return { id: 'demo', firstName: 'Demo', lastName: 'User', email: 'user@example.com', role: 'company_admin' as const }
+    return null
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
@@ -63,12 +63,27 @@ export default function Layout({ children }: LayoutProps) {
   }, [])
   const { theme, toggleTheme } = useTheme()
 
-  // Keep user in sync with localStorage across page navigations
+  // Keep user in sync — re-read localStorage on every navigation and
+  // fall back to /auth/me if userData is missing (e.g. after OTP signup)
   useEffect(() => {
     const userData = localStorage.getItem('userData')
     if (userData) {
-      try { setUser(JSON.parse(userData)) } catch { /* ignore */ }
+      try { setUser(JSON.parse(userData)); return } catch { /* ignore */ }
     }
+    // No stored user — try to fetch from API with the existing token
+    const token = localStorage.getItem('authToken')
+    if (!token) return
+    fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (data) {
+          localStorage.setItem('userData', JSON.stringify(data))
+          setUser(data)
+        }
+      })
+      .catch(() => { /* silently ignore */ })
   }, [router.pathname])
 
   const handleLogout = () => {
