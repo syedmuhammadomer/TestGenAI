@@ -485,11 +485,25 @@ export class ProjectsService implements OnModuleInit {
       const jsonStr = this.extractJson(raw);
       try {
         return JSON.parse(jsonStr);
-      } catch {
-        // Try to salvage a truncated response by closing open structures
-        const repaired = this.repairJson(jsonStr);
-        this.logger.warn(`Attempting repaired JSON parse`);
-        return JSON.parse(repaired);
+      } catch (firstErr) {
+        this.logger.warn(`Initial JSON parse failed: ${firstErr instanceof Error ? firstErr.message : firstErr}`);
+
+        // Step 1: sanitise common issues (unescaped control chars inside strings)
+        const sanitised = this.sanitiseJson(jsonStr);
+        try {
+          return JSON.parse(sanitised);
+        } catch { /* continue */ }
+
+        // Step 2: close unclosed brackets/braces on the sanitised string
+        const repaired = this.repairJson(sanitised);
+        this.logger.warn('Attempting repaired JSON parse');
+        try {
+          return JSON.parse(repaired);
+        } catch { /* continue */ }
+
+        // Step 3: extract whatever top-level arrays are valid and return a partial result
+        this.logger.warn('Full parse failed — extracting partial arrays');
+        return this.extractPartialResult(jsonStr);
       }
     } catch (error) {
       clearTimeout(hardTimer);
@@ -519,6 +533,66 @@ export class ProjectsService implements OnModuleInit {
     }
     // Close in reverse order
     return s + stack.reverse().join('');
+  }
+
+  /** Replace unescaped control characters inside JSON strings */
+  private sanitiseJson(raw: string): string {
+    // Replace literal tab/newline/CR inside string values with their escape sequences
+    let result = '';
+    let inString = false;
+    let escape = false;
+    for (let i = 0; i < raw.length; i++) {
+      const ch = raw[i];
+      if (escape) { result += ch; escape = false; continue; }
+      if (ch === '\\') { result += ch; if (inString) escape = true; continue; }
+      if (ch === '"') { inString = !inString; result += ch; continue; }
+      if (inString) {
+        if (ch === '\n') { result += '\\n'; continue; }
+        if (ch === '\r') { result += '\\r'; continue; }
+        if (ch === '\t') { result += '\\t'; continue; }
+        // Remove other control characters
+        if (ch.charCodeAt(0) < 0x20) continue;
+      }
+      result += ch;
+    }
+    return result;
+  }
+
+  /** Last-resort: try to parse each top-level array key individually */
+  private extractPartialResult(raw: string): Record<string, any> {
+    const keys = ['features', 'userStories', 'testCases', 'rtm', 'analytics'];
+    const result: Record<string, any> = {};
+    for (const key of keys) {
+      const match = raw.match(new RegExp(`"${key}"\\s*:\\s*(\\[|\\{)`));
+      if (!match || match.index === undefined) continue;
+      const start = match.index + match[0].length - 1;
+      const open = raw[start];
+      const close = open === '[' ? ']' : '}';
+      let depth = 0;
+      let end = start;
+      let inStr = false;
+      let esc = false;
+      for (let i = start; i < raw.length; i++) {
+        const c = raw[i];
+        if (esc) { esc = false; continue; }
+        if (c === '\\' && inStr) { esc = true; continue; }
+        if (c === '"') { inStr = !inStr; continue; }
+        if (inStr) continue;
+        if (c === open) depth++;
+        else if (c === close) { depth--; if (depth === 0) { end = i; break; } }
+      }
+      try {
+        result[key] = JSON.parse(raw.slice(start, end + 1));
+      } catch {
+        result[key] = open === '[' ? [] : {};
+      }
+    }
+    if (!result.features) result.features = [];
+    if (!result.userStories) result.userStories = [];
+    if (!result.testCases) result.testCases = [];
+    if (!result.rtm) result.rtm = [];
+    this.logger.warn(`Partial extraction: features=${result.features?.length}, stories=${result.userStories?.length}, tests=${result.testCases?.length}`);
+    return result;
   }
 
   private extractJson(raw: string) {
