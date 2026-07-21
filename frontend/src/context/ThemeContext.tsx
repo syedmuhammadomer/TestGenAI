@@ -13,7 +13,16 @@ const STORAGE_KEY = 'theme'
 const ThemeContext = createContext<ThemeContextValue | undefined>(undefined)
 
 function applyTheme(theme: Theme) {
-  document.documentElement.classList.toggle('dark', theme === 'dark')
+  const root = document.documentElement
+  // Freeze all transitions so the switch is instant (no lag from hundreds of elements)
+  root.classList.add('no-transition')
+  root.classList.toggle('dark', theme === 'dark')
+  // Re-enable transitions after the browser has painted the new theme
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      root.classList.remove('no-transition')
+    })
+  })
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

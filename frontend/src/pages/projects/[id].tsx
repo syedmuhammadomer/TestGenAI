@@ -7,8 +7,176 @@ import Layout from '@/components/Layout'
 import {
   ArrowLeft, Sparkles, TestTube, Link, BarChart2, Layers,
   CheckCircle2, Clock, XCircle, RefreshCw, ChevronDown, ChevronUp,
+  Brain, Cpu, FileSearch, GitBranch, Zap,
 } from 'lucide-react'
 import { config } from '@/utils/config'
+
+// ── AI Processing animation steps ────────────────────────────────────────────
+const AI_STEPS = [
+  { icon: FileSearch, label: 'Reading SRS document',       color: 'text-blue-400',    bg: 'bg-blue-500/10'    },
+  { icon: Brain,      label: 'Extracting requirements',    color: 'text-purple-400',  bg: 'bg-purple-500/10'  },
+  { icon: Sparkles,   label: 'Generating user stories',    color: 'text-primary-400', bg: 'bg-primary-500/10' },
+  { icon: GitBranch,  label: 'Building feature tree',      color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+  { icon: TestTube,   label: 'Creating test cases',        color: 'text-amber-400',   bg: 'bg-amber-500/10'   },
+  { icon: Link,       label: 'Mapping traceability matrix', color: 'text-rose-400',   bg: 'bg-rose-500/10'    },
+  { icon: Cpu,        label: 'Running AI validation',      color: 'text-cyan-400',    bg: 'bg-cyan-500/10'    },
+  { icon: Zap,        label: 'Finalising output',          color: 'text-yellow-400',  bg: 'bg-yellow-500/10'  },
+]
+
+function AiAnalyzingState({ progress }: { progress: number }) {
+  const [stepIdx, setStepIdx] = useState(0)
+  const [dots, setDots] = useState('.')
+  const [logLines, setLogLines] = useState<string[]>([
+    '> Initializing AI engine...',
+    '> Loading SRS document into context...',
+  ])
+
+  const LOG_POOL = [
+    '> Tokenizing requirement paragraphs...',
+    '> Identifying actor-goal pairs...',
+    '> Classifying functional vs non-functional...',
+    '> Linking acceptance criteria...',
+    '> Generating BDD scenarios...',
+    '> Cross-referencing requirements...',
+    '> Scoring test coverage...',
+    '> Extracting edge cases...',
+    '> Mapping RTM entries...',
+    '> Running conflict detection...',
+    '> Ranking requirements by priority...',
+    '> Generating test case IDs...',
+  ]
+
+  // Cycle through steps
+  useEffect(() => {
+    const t = setInterval(() => {
+      setStepIdx((i) => (i + 1) % AI_STEPS.length)
+    }, 2200)
+    return () => clearInterval(t)
+  }, [])
+
+  // Animate trailing dots
+  useEffect(() => {
+    const t = setInterval(() => {
+      setDots((d) => (d.length >= 3 ? '.' : d + '.'))
+    }, 500)
+    return () => clearInterval(t)
+  }, [])
+
+  // Add log lines
+  useEffect(() => {
+    let poolIdx = 0
+    const t = setInterval(() => {
+      const line = LOG_POOL[poolIdx % LOG_POOL.length]
+      poolIdx++
+      setLogLines((prev) => [...prev.slice(-6), line])
+    }, 1800)
+    return () => clearInterval(t)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const step = AI_STEPS[stepIdx]
+  const StepIcon = step.icon
+  const done = Math.min(stepIdx, AI_STEPS.length - 1)
+
+  return (
+    <div className="py-6 space-y-6">
+      {/* Active step hero */}
+      <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
+        {/* Ambient glow */}
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className={`w-64 h-64 rounded-full blur-3xl opacity-10 ${step.bg.replace('/10', '')}`} />
+        </div>
+
+        <div className={`relative mx-auto w-16 h-16 rounded-2xl ${step.bg} flex items-center justify-center mb-4 ring-1 ring-white/5`}>
+          <StepIcon className={`w-7 h-7 ${step.color}`} />
+          {/* Pulse rings */}
+          <span className={`absolute inset-0 rounded-2xl ${step.bg} animate-ping opacity-40`} />
+        </div>
+
+        <p className={`relative text-lg font-semibold ${step.color}`}>
+          {step.label}{dots}
+        </p>
+        <p className="relative text-xs text-slate-500 mt-1">AI is actively processing your document</p>
+      </div>
+
+      {/* Step pipeline */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {AI_STEPS.map((s, i) => {
+          const Icon = s.icon
+          const isDone = i < done
+          const isActive = i === stepIdx
+          return (
+            <div key={i}
+              className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-xs font-medium transition-all duration-500 ${
+                isActive
+                  ? `${s.bg} border-current ${s.color} shadow-sm`
+                  : isDone
+                    ? 'bg-emerald-900/15 border-emerald-800/30 text-emerald-500'
+                    : 'bg-slate-900/50 border-slate-800 text-slate-600'
+              }`}>
+              <Icon className={`w-3.5 h-3.5 shrink-0 ${isActive ? s.color : isDone ? 'text-emerald-500' : 'text-slate-700'}`} />
+              <span className="truncate">{s.label}</span>
+              {isDone && <CheckCircle2 className="w-3 h-3 ml-auto shrink-0 text-emerald-500" />}
+              {isActive && <RefreshCw className="w-3 h-3 ml-auto shrink-0 animate-spin" />}
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Terminal-style log */}
+      <div className="rounded-xl border border-slate-800 bg-[#0a0a0f] overflow-hidden">
+        <div className="flex items-center gap-1.5 px-4 py-2.5 border-b border-slate-800 bg-slate-900/50">
+          <span className="w-2.5 h-2.5 rounded-full bg-rose-500/70" />
+          <span className="w-2.5 h-2.5 rounded-full bg-amber-500/70" />
+          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500/70" />
+          <span className="ml-2 text-[10px] text-slate-500 font-mono">ai-engine · live log</span>
+          <span className="ml-auto flex items-center gap-1 text-[10px] text-emerald-400 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> RUNNING
+          </span>
+        </div>
+        <div className="p-4 font-mono text-[11px] space-y-1 min-h-[120px]">
+          {logLines.map((line, i) => (
+            <p key={i}
+              className={`transition-all duration-500 ${i === logLines.length - 1 ? 'text-primary-300' : 'text-slate-500'}`}>
+              {line}
+              {i === logLines.length - 1 && <span className="ml-0.5 inline-block w-1.5 h-3.5 bg-primary-400 align-middle animate-pulse" />}
+            </p>
+          ))}
+        </div>
+      </div>
+
+      <p className="text-center text-xs text-slate-600">
+        {progress}% complete · This page refreshes automatically
+      </p>
+    </div>
+  )
+}
+
+// ── Animated progress bar ────────────────────────────────────────────────────
+function ProgressBar({ progress }: { progress: number }) {
+  const [dots, setDots] = useState('.')
+  useEffect(() => {
+    const t = setInterval(() => setDots((d) => (d.length >= 3 ? '.' : d + '.')), 500)
+    return () => clearInterval(t)
+  }, [])
+
+  return (
+    <div className="mt-4 space-y-2">
+      <div className="flex items-center justify-between text-xs">
+        <span className="flex items-center gap-1.5 text-primary-400 font-medium">
+          <Cpu className="w-3.5 h-3.5 animate-pulse" />
+          AI is analyzing your SRS{dots}
+        </span>
+        <span className="text-slate-400 tabular-nums">{progress}%</span>
+      </div>
+      <div className="h-2 bg-slate-800 rounded-full overflow-hidden relative">
+        <div
+          className="h-full bg-gradient-to-r from-primary-600 via-primary-400 to-primary-600 bg-[length:200%_100%] animate-[shimmer_1.5s_linear_infinite] transition-all duration-700 rounded-full"
+          style={{ width: `${Math.max(4, progress)}%` }}
+        />
+      </div>
+    </div>
+  )
+}
 
 type Feature = { id: number; title: string; description: string }
 type UserStory = { id: number; actor: string; goal: string; benefit: string; acceptanceCriteria: string }
@@ -52,14 +220,14 @@ const TABS: { key: Tab; label: string; icon: React.ComponentType<{ className?: s
 function StatusBadge({ status }: { status: Project['status'] }) {
   const map = {
     completed: { color: 'bg-emerald-600/20 text-emerald-300', icon: CheckCircle2 },
-    processing: { color: 'bg-blue-600/20 text-blue-300', icon: RefreshCw },
+    processing: { color: 'bg-primary-600/20 text-primary-300', icon: RefreshCw },
     queued: { color: 'bg-slate-600/20 text-slate-300', icon: Clock },
     failed: { color: 'bg-rose-600/20 text-rose-300', icon: XCircle },
   }
   const { color, icon: Icon } = map[status] ?? map.queued
   return (
     <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${color}`}>
-      <Icon className="w-3.5 h-3.5" />
+      <Icon className={`w-3.5 h-3.5 ${status === 'processing' ? 'animate-spin' : ''}`} />
       {status.toUpperCase()}
     </span>
   )
@@ -157,18 +325,7 @@ export default function ProjectDetailPage() {
 
         {/* Progress bar */}
         {isProcessing && (
-          <div className="mt-4 space-y-1">
-            <div className="flex justify-between text-xs text-slate-400">
-              <span>AI is analyzing your SRS ({project.progress}% complete)</span>
-              <span>{project.progress}%</span>
-            </div>
-            <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
-              <div
-                className="h-2 bg-gradient-to-r from-primary-500 to-accent transition-all duration-500"
-                style={{ width: `${project.progress}%` }}
-              />
-            </div>
-          </div>
+          <ProgressBar progress={project.progress} />
         )}
 
         {project.status === 'failed' && project.failureReason && (
@@ -215,11 +372,7 @@ export default function ProjectDetailPage() {
       {tab === 'overview' && (
         <div className="space-y-4">
           {isProcessing ? (
-            <div className="text-center py-16 text-slate-500">
-              <RefreshCw className="w-8 h-8 mx-auto mb-3 animate-spin text-primary-500" />
-              <p>AI is still analyzing the SRS document…</p>
-              <p className="text-xs mt-1">This page will update automatically when complete.</p>
-            </div>
+            <AiAnalyzingState progress={project.progress} />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <ExpandableCard title={`Features (${features.length})`}>

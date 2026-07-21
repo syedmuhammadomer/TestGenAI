@@ -243,15 +243,11 @@ html:not(.dark) ::selection {
   border-radius: 4px;
 }
 
-/* ─── Transition smoothing for theme toggle ──────────────────────────────── */
-*,
-*::before,
-*::after {
-  transition-property: background-color, border-color, color;
-  transition-duration: 0.15s;
-  transition-timing-function: ease;
-}
-/* Don't animate transforms/opacity/shadow through this rule */
-button, a, input, textarea, select {
-  transition: none;
+/* ─── Theme toggle: kill all transitions during the switch ───────────────── */
+/* Applied for two frames around the .dark class flip — prevents lag from     */
+/* hundreds of elements animating background-color/color simultaneously.      */
+.no-transition *,
+.no-transition *::before,
+.no-transition *::after {
+  transition: none !important;
 }
