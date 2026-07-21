@@ -87,39 +87,58 @@ export default function ProjectsPage() {
         }}
       />
       {deleteModalProject && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-4">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 space-y-6 shadow-2xl">
-            <h3 className="text-xl font-semibold text-slate-900">Confirm Delete</h3>
-            <p className="text-sm text-slate-600">
-              Are you sure you want to delete <span className="font-semibold text-slate-900">{deleteModalProject.name}</span>? This action cannot be undone.
-            </p>
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-200">
-              <Button
-                variant="outline"
-                onClick={() => setDeleteModalProject(null)}
-                disabled={isDeleting}
-              >
-                Cancel
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={async () => {
-                  setIsDeleting(true)
-                  try {
-                    await axios.delete(`${config.endpoints.projects}/${deleteModalProject.id}`)
-                    setProjects((prev) => prev.filter(project => project.id !== deleteModalProject.id))
-                    setActionMessage({ text: 'Project deleted successfully.', type: 'success' })
-                    setDeleteModalProject(null)
-                  } catch (error) {
-                    setActionMessage({ text: handleApiError(error), type: 'error' })
-                  } finally {
-                    setIsDeleting(false)
-                  }
-                }}
-                isLoading={isDeleting}
-              >
-                Delete project
-              </Button>
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden">
+            {/* Red top bar */}
+            <div className="h-1 w-full bg-rose-500" />
+            <div className="p-6 space-y-4">
+              <div className="flex items-start gap-4">
+                <div className="w-10 h-10 rounded-full bg-rose-500/15 flex items-center justify-center shrink-0">
+                  <svg className="w-5 h-5 text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-base font-semibold text-white">Delete project?</h3>
+                  <p className="text-sm text-zinc-400 mt-1">
+                    <span className="font-semibold text-zinc-200">{deleteModalProject.name}</span> will be permanently removed. This cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end gap-3 pt-2 border-t border-zinc-800">
+                <button
+                  onClick={() => setDeleteModalProject(null)}
+                  disabled={isDeleting}
+                  className="px-4 py-2 text-sm font-medium text-zinc-300 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-xl transition-all duration-150 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={async () => {
+                    setIsDeleting(true)
+                    try {
+                      await axios.delete(`${config.endpoints.projects}/${deleteModalProject.id}`)
+                      setProjects((prev) => prev.filter(project => project.id !== deleteModalProject.id))
+                      setActionMessage({ text: 'Project deleted successfully.', type: 'success' })
+                      setDeleteModalProject(null)
+                    } catch (error) {
+                      setActionMessage({ text: handleApiError(error), type: 'error' })
+                    } finally {
+                      setIsDeleting(false)
+                    }
+                  }}
+                  disabled={isDeleting}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-rose-600 hover:bg-rose-500 rounded-xl transition-all duration-150 disabled:opacity-50"
+                >
+                  {isDeleting && (
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                  )}
+                  Delete project
+                </button>
+              </div>
             </div>
           </div>
         </div>

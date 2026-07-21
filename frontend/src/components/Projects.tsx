@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { PlusCircle, MoreVertical, Search } from 'lucide-react'
+import { PlusCircle, MoreVertical, Search, Trash2 } from 'lucide-react'
 import { useRouter } from 'next/router'
 import Button from './Button'
 
@@ -74,15 +74,16 @@ export default function Projects({ projects, onDeleteRequest }: ProjectsProps) {
                     <MoreVertical className="w-5 h-5 text-slate-400" />
                   </button>
                   {menuOpenId === project.id && (
-                    <div className="absolute right-0 top-10 z-10 w-36 rounded-lg border border-slate-800 bg-slate-950 shadow-elevated">
+                    <div className="absolute right-0 top-10 z-10 w-44 rounded-xl border border-slate-700/60 bg-zinc-900 shadow-elevated overflow-hidden p-1">
                       <button
                         onClick={(e) => {
                           e.stopPropagation()
                           setMenuOpenId(null)
                           onDeleteRequest(project)
                         }}
-                        className="w-full px-3 py-2 text-left text-sm text-slate-200 hover:bg-rose-900 hover:text-rose-300 rounded-lg transition"
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-left text-sm font-medium text-rose-400 hover:bg-rose-500/10 hover:text-rose-300 rounded-lg transition-all duration-150"
                       >
+                        <Trash2 className="w-4 h-4 shrink-0" />
                         Delete project
                       </button>
                     </div>
