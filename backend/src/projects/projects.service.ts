@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import OpenAI from 'openai';
@@ -20,7 +20,7 @@ import { TeamActivity } from '../team/entities/team-activity.entity';
 const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'srs');
 
 @Injectable()
-export class ProjectsService {
+export class ProjectsService implements OnModuleInit {
   private readonly logger = new Logger(ProjectsService.name);
   private openAi: OpenAI | null = null;
 
@@ -39,6 +39,21 @@ export class ProjectsService {
   ) {
     if (!existsSync(UPLOAD_DIR)) {
       mkdirSync(UPLOAD_DIR, { recursive: true });
+    }
+  }
+
+  /** On startup, re-queue any projects that were left stuck in 'processing' or 'queued' */
+  async onModuleInit() {
+    const stuck = await this.projectRepository.find({
+      where: [{ status: ProjectStatus.Processing }, { status: ProjectStatus.Queued }],
+    });
+    if (stuck.length === 0) return;
+    this.logger.log(`Found ${stuck.length} stuck project(s) — reprocessing on startup`);
+    for (const project of stuck) {
+      await this.projectRepository.update(project.id, { status: ProjectStatus.Queued, progress: 0 });
+      void this.processProject(project.id).catch((err) => {
+        this.logger.error(`Startup reprocessing of project ${project.id} failed`, err?.stack || err);
+      });
     }
   }
 
@@ -328,7 +343,7 @@ export class ProjectsService {
     this.openAi = new OpenAI({
       apiKey: key,
       baseURL,
-      timeout: 120000,
+      timeout: 600000,
       defaultHeaders: { 'User-Agent': 'curl/8.5.0' },
     });
     return this.openAi;
@@ -427,9 +442,9 @@ export class ProjectsService {
 
     const controller = new AbortController();
     const hardTimer = setTimeout(() => {
-      this.logger.warn(`AI call hard-timeout after 300 s [model=${model}]`);
+      this.logger.warn(`AI call hard-timeout after 600 s [model=${model}]`);
       controller.abort();
-    }, 300000);
+    }, 600000);
 
     try {
       const response = await this.getOpenAiClient().chat.completions.create(
