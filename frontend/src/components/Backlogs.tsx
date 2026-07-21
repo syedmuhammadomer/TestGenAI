@@ -1,7 +1,7 @@
 import * as React from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Search, PlusCircle, X, Plus, Pencil, Trash2, Check, AlertCircle, LayoutGrid,
+  Search, X, Plus, Pencil, Trash2, Check, AlertCircle, LayoutGrid,
   ChevronRight, SlidersHorizontal, ArrowUpDown, Eye, MoreHorizontal,
 } from 'lucide-react'
 import Button from './Button'
