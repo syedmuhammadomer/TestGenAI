@@ -5,6 +5,9 @@ export class TeamActivity {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ nullable: true })
+  userId?: number;
+
   @Column()
   actor: string;
 

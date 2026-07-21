@@ -47,10 +47,13 @@ export class TeamMember {
   @PrimaryGeneratedColumn()
   id: number;
 
+  @Column({ nullable: true })
+  userId?: number;
+
   @Column()
   fullName: string;
 
-  @Column({ unique: true })
+  @Column()
   email: string;
 
   @Column({ type: 'enum', enum: MemberRole, default: MemberRole.Viewer })
