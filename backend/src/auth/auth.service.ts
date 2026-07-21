@@ -302,8 +302,20 @@ export class AuthService {
     // Look up their TeamMember record to get assigned role + modules
     const member = await this.teamMemberRepository.findOne({ where: { email: user.email } });
 
-    const memberRole: MemberRole = member?.role ?? MemberRole.Viewer;
-    const modules = member?.modules?.length
+    // No TeamMember record means this user registered themselves — treat as company owner
+    if (!member) {
+      return {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: MemberRole.CompanyAdmin,
+        modules: [...ALL_MODULES],
+      };
+    }
+
+    const memberRole: MemberRole = member.role ?? MemberRole.Viewer;
+    const modules = member.modules?.length
       ? member.modules
       : DEFAULT_MODULES_BY_ROLE[memberRole];
 

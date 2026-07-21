@@ -63,14 +63,10 @@ export default function Layout({ children }: LayoutProps) {
   }, [])
   const { theme, toggleTheme } = useTheme()
 
-  // Keep user in sync — re-read localStorage on every navigation and
-  // fall back to /auth/me if userData is missing (e.g. after OTP signup)
+  // Always fetch fresh user data from /auth/me on every navigation so that
+  // role/module changes (e.g. admin granting access) are reflected immediately.
+  // We seed the UI instantly from localStorage so there is no visible flash.
   useEffect(() => {
-    const userData = localStorage.getItem('userData')
-    if (userData) {
-      try { setUser(JSON.parse(userData)); return } catch { /* ignore */ }
-    }
-    // No stored user — try to fetch from API with the existing token
     const token = localStorage.getItem('authToken')
     if (!token) return
     fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'}/auth/me`, {
