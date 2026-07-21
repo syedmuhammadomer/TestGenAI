@@ -1,9 +1,9 @@
-import React, { ReactNode, useState, useEffect } from 'react'
+import React, { ReactNode, useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/router'
 import {
   User, Settings, Zap,
   Home, FolderOpen, Sparkles, TestTube, Link, File, BarChart, Users, CreditCard,
-  Menu, Kanban, LogOut, Sun, Moon, MessageSquare
+  Menu, Kanban, LogOut, Sun, Moon, MessageSquare, ChevronDown, Check
 } from 'lucide-react'
 import { useProjectContext } from '@/context/ProjectContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -47,7 +47,20 @@ export default function Layout({ children }: LayoutProps) {
     return { id: 'demo', firstName: 'Demo', lastName: 'User', email: 'user@example.com', role: 'company_admin' as const }
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const dropdownRef = useRef<HTMLDivElement>(null)
   const { projects, selectedProjectId, setSelectedProjectId, loading: projectsLoading } = useProjectContext()
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setDropdownOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
   const { theme, toggleTheme } = useTheme()
 
   // Keep user in sync with localStorage across page navigations
@@ -99,30 +112,91 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </div>
 
-        {/* Project selector */}
-        <div className="px-4 pt-4">
-          <select
-            value={selectedProjectId ?? ''}
-            onChange={(e) => setSelectedProjectId(Number(e.target.value))}
-            disabled={projectsLoading || projects.length === 0}
-            className={`
-              w-full rounded-xl border px-3 py-2 text-xs font-medium shadow-sm
-              focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500
-              disabled:cursor-not-allowed disabled:opacity-60
-              transition-all duration-200
-              ${isDark
-                ? 'border-zinc-700 bg-zinc-900 text-zinc-100'
-                : 'border-zinc-300 bg-zinc-50 text-zinc-900'}
-            `}
-          >
-            {projects.length === 0 ? (
-              <option value="">{projectsLoading ? 'Loading projects…' : 'No projects yet'}</option>
-            ) : (
-              projects.map((p) => (
-                <option key={p.id} value={p.id}>{p.name}</option>
-              ))
+        {/* Project selector — custom dropdown */}
+        <div className="px-3 pt-4" ref={dropdownRef}>
+          <div className="relative">
+            <button
+              onClick={() => !projectsLoading && projects.length > 0 && setDropdownOpen((o) => !o)}
+              disabled={projectsLoading || projects.length === 0}
+              className={`
+                w-full flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left
+                transition-all duration-200 group
+                disabled:cursor-not-allowed disabled:opacity-50
+                ${dropdownOpen
+                  ? isDark
+                    ? 'border-primary-500/50 bg-primary-500/10 ring-2 ring-primary-500/20'
+                    : 'border-primary-400 bg-primary-50 ring-2 ring-primary-400/20'
+                  : isDark
+                    ? 'border-zinc-700 bg-zinc-900 hover:border-primary-500/40 hover:bg-zinc-800'
+                    : 'border-zinc-200 bg-zinc-50 hover:border-primary-400/50 hover:bg-white'}
+              `}
+            >
+              {/* Icon */}
+              <div className={`w-6 h-6 rounded-lg flex items-center justify-center shrink-0 transition-colors ${
+                dropdownOpen ? 'bg-primary-500/20' : isDark ? 'bg-zinc-800 group-hover:bg-primary-500/10' : 'bg-zinc-200 group-hover:bg-primary-100'
+              }`}>
+                {projectsLoading
+                  ? <div className="w-3 h-3 border border-primary-400 border-t-transparent rounded-full animate-spin" />
+                  : <FolderOpen className={`w-3.5 h-3.5 ${dropdownOpen ? 'text-primary-400' : isDark ? 'text-zinc-400' : 'text-zinc-500'}`} />
+                }
+              </div>
+
+              {/* Label */}
+              <span className={`flex-1 text-xs font-medium truncate ${
+                isDark ? 'text-zinc-200' : 'text-zinc-700'
+              }`}>
+                {projectsLoading
+                  ? 'Loading…'
+                  : projects.length === 0
+                    ? 'No projects yet'
+                    : (projects.find((p) => p.id === selectedProjectId)?.name ?? projects[0]?.name ?? 'Select project')
+                }
+              </span>
+
+              {/* Chevron */}
+              {!projectsLoading && projects.length > 0 && (
+                <ChevronDown className={`w-3.5 h-3.5 shrink-0 transition-all duration-200 ${
+                  dropdownOpen ? 'rotate-180 text-primary-400' : isDark ? 'text-zinc-500' : 'text-zinc-400'
+                }`} />
+              )}
+            </button>
+
+            {/* Dropdown list */}
+            {dropdownOpen && projects.length > 0 && (
+              <div className={`
+                absolute left-0 right-0 top-full mt-1.5 z-50
+                rounded-xl border shadow-elevated overflow-hidden
+                ${isDark ? 'bg-zinc-900 border-zinc-700' : 'bg-white border-zinc-200'}
+              `}>
+                <div className="p-1 max-h-52 overflow-y-auto">
+                  {projects.map((p) => {
+                    const isSelected = p.id === selectedProjectId
+                    return (
+                      <button
+                        key={p.id}
+                        onClick={() => { setSelectedProjectId(p.id); setDropdownOpen(false) }}
+                        className={`
+                          w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs font-medium
+                          transition-all duration-150
+                          ${isSelected
+                            ? isDark
+                              ? 'bg-primary-500/15 text-primary-300'
+                              : 'bg-primary-50 text-primary-700'
+                            : isDark
+                              ? 'text-zinc-300 hover:bg-zinc-800 hover:text-white'
+                              : 'text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900'}
+                        `}
+                      >
+                        <FolderOpen className={`w-3.5 h-3.5 shrink-0 ${isSelected ? 'text-primary-400' : isDark ? 'text-zinc-500' : 'text-zinc-400'}`} />
+                        <span className="flex-1 truncate">{p.name}</span>
+                        {isSelected && <Check className="w-3 h-3 text-primary-400 shrink-0" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
             )}
-          </select>
+          </div>
         </div>
 
         {/* Navigation */}
