@@ -102,6 +102,12 @@ html:not(.dark) .bg-slate-950\/80 {
 html:not(.dark) .hover\:bg-slate-900:hover {
   background-color: #f4f4f5 !important;
 }
+html:not(.dark) .hover\:bg-slate-800:hover {
+  background-color: #e4e4e7 !important;
+}
+html:not(.dark) .hover\:bg-slate-700:hover {
+  background-color: #d4d4d8 !important;
+}
 html:not(.dark) .hover\:bg-slate-800\/60:hover {
   background-color: rgba(228, 228, 231, 0.6) !important;
 }

@@ -2,6 +2,7 @@ import * as React from 'react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Search, PlusCircle, X, Plus, Pencil, Trash2, Check, AlertCircle, LayoutGrid,
+  ChevronRight, SlidersHorizontal, ArrowUpDown, Eye, MoreHorizontal,
 } from 'lucide-react'
 import Button from './Button'
 import { ProjectRecord, useProjectContext } from '@/context/ProjectContext'
@@ -70,17 +71,17 @@ function saveLabels(pid: string | number, labels: KanbanLabel[]) {
 
 /* ─── Column accent colours (cycles for custom sections) ─────────────────── */
 
-const SECTION_COLORS: Record<string, { bar: string; count: string; glow: string }> = {
-  backlog:     { bar: 'bg-slate-500',          count: 'bg-slate-700 text-slate-300',       glow: 'hover:shadow-slate-500/10'    },
-  in_progress: { bar: 'bg-primary-500',        count: 'bg-primary-500/20 text-primary-300', glow: 'hover:shadow-primary-500/10' },
-  qa_reviews:  { bar: 'bg-amber-500',          count: 'bg-amber-500/20 text-amber-300',    glow: 'hover:shadow-amber-500/10'   },
-  done:        { bar: 'bg-emerald-500',        count: 'bg-emerald-500/20 text-emerald-300', glow: 'hover:shadow-emerald-500/10' },
+const SECTION_COLORS: Record<string, { bar: string; count: string; countText: string }> = {
+  backlog:     { bar: 'bg-slate-400',    count: 'bg-slate-800 border border-slate-700',    countText: 'text-slate-300'   },
+  in_progress: { bar: 'bg-primary-500',  count: 'bg-primary-900 border border-primary-700', countText: 'text-primary-300' },
+  qa_reviews:  { bar: 'bg-amber-500',    count: 'bg-amber-900 border border-amber-700',    countText: 'text-amber-300'   },
+  done:        { bar: 'bg-emerald-500',  count: 'bg-emerald-900 border border-emerald-700', countText: 'text-emerald-300' },
 }
 
 const CYCLE_COLORS = [
-  { bar: 'bg-violet-500', count: 'bg-violet-500/20 text-violet-300', glow: 'hover:shadow-violet-500/10' },
-  { bar: 'bg-pink-500',   count: 'bg-pink-500/20 text-pink-300',     glow: 'hover:shadow-pink-500/10'   },
-  { bar: 'bg-cyan-500',   count: 'bg-cyan-500/20 text-cyan-300',     glow: 'hover:shadow-cyan-500/10'   },
+  { bar: 'bg-violet-500', count: 'bg-violet-900 border border-violet-700', countText: 'text-violet-300' },
+  { bar: 'bg-pink-500',   count: 'bg-pink-900 border border-pink-700',     countText: 'text-pink-300'   },
+  { bar: 'bg-cyan-500',   count: 'bg-cyan-900 border border-cyan-700',     countText: 'text-cyan-300'   },
 ]
 
 function getSectionColor(id: string, idx: number) {
@@ -311,80 +312,96 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
   /* ── Render ── */
 
   return (
-    <div className="flex flex-col h-full space-y-5">
+    <div className="flex flex-col h-full gap-0">
 
-      {/* ── Board Header ── */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-primary-600/20 border border-primary-500/30 flex items-center justify-center">
-            <LayoutGrid className="w-4.5 h-4.5 text-primary-400" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold text-white">Kanban Board</h1>
-              {selectedProject && (
-                <span className="text-xs text-slate-500 bg-slate-800 border border-slate-700 px-2.5 py-0.5 rounded-full">
-                  {selectedProject.name}
-                </span>
-              )}
+      {/* ── Plane-style Board Header ── */}
+      <div className="flex flex-col gap-0 mb-4">
+
+        {/* Row 1: Breadcrumb + title */}
+        <div className="flex items-center justify-between py-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <LayoutGrid className="w-4 h-4 text-slate-500 shrink-0" />
+            <div className="flex items-center gap-1.5 text-sm min-w-0">
+              <span className="text-slate-500 font-medium">Backlogs</span>
+              <ChevronRight className="w-3.5 h-3.5 text-slate-700 shrink-0" />
+              <span className="text-white font-semibold truncate">
+                {selectedProject ? selectedProject.name : 'No project'}
+              </span>
             </div>
-            <p className="text-slate-500 text-xs mt-0.5">
-              {canEdit ? 'Drag cards between columns to update status.' : 'View and track sprint progress.'}
-            </p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Progress */}
-          {totalCards > 0 && (
-            <div className="hidden md:flex items-center gap-3 bg-slate-900 border border-slate-800 rounded-xl px-4 py-2">
-              <div className="text-right">
-                <p className="text-xs text-slate-500">Progress</p>
-                <p className="text-sm font-bold text-white">{progress}%</p>
-              </div>
-              <div className="w-24 h-1.5 bg-slate-800 rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 rounded-full transition-all duration-500"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-              <p className="text-xs text-slate-500">{doneCount}/{totalCards}</p>
-            </div>
-          )}
-
-          {/* Search */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search cards…"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-48 pl-9 pr-4 py-2 rounded-xl bg-slate-900 border border-slate-700 text-slate-300 placeholder-slate-600 text-sm focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/30 transition"
-            />
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600" />
-            {searchTerm && (
-              <button onClick={() => setSearchTerm('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-400">
-                <X className="w-3.5 h-3.5" />
-              </button>
-            )}
           </div>
 
+          {/* New Card button */}
           {canEdit && (
-            <Button className="whitespace-nowrap" onClick={() => startCreate()} disabled={!selectedProjectId}>
-              <PlusCircle className="w-4 h-4 mr-2 inline" /> New Card
+            <Button
+              size="sm"
+              className="whitespace-nowrap shrink-0"
+              onClick={() => startCreate()}
+              disabled={!selectedProjectId}
+            >
+              <Plus className="w-3.5 h-3.5 mr-1.5" /> New Issue
             </Button>
           )}
+        </div>
+
+        {/* Row 2: Toolbar — Filters | Group by | Display | search | progress */}
+        <div className="flex items-center justify-between gap-2 pt-2 pb-1 border-b border-slate-800">
+          {/* Left toolbar */}
+          <div className="flex items-center gap-1">
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
+              <SlidersHorizontal className="w-3.5 h-3.5" /> Filters
+            </button>
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
+              <ArrowUpDown className="w-3.5 h-3.5" /> Group by
+            </button>
+            <button className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium text-slate-400 hover:text-white hover:bg-slate-800 transition">
+              <Eye className="w-3.5 h-3.5" /> Display
+            </button>
+          </div>
+
+          {/* Right: search + progress */}
+          <div className="flex items-center gap-2">
+            {/* Inline progress pill */}
+            {totalCards > 0 && (
+              <div className="hidden sm:flex items-center gap-2 text-xs text-slate-500 bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5">
+                <div className="w-14 h-1.5 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-gradient-to-r from-primary-500 to-emerald-500 rounded-full transition-all duration-700"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+                <span className="text-emerald-400 font-semibold">{progress}%</span>
+                <span className="text-slate-600">{doneCount}/{totalCards}</span>
+              </div>
+            )}
+
+            {/* Search */}
+            <div className="relative">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-600" />
+              <input
+                type="text"
+                placeholder="Search…"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-36 pl-8 pr-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-300 placeholder-slate-600 text-xs focus:outline-none focus:border-primary-500 focus:w-48 transition-all"
+              />
+              {searchTerm && (
+                <button onClick={() => setSearchTerm('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-slate-600 hover:text-slate-400">
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       </div>
 
       {/* No project */}
       {!selectedProject && (
-        <div className="flex flex-col items-center justify-center py-20 rounded-2xl border-2 border-dashed border-slate-800 bg-slate-900/30">
-          <div className="w-14 h-14 rounded-2xl bg-slate-800 flex items-center justify-center mb-4">
-            <LayoutGrid className="w-6 h-6 text-slate-600" />
+        <div className="flex flex-col items-center justify-center py-24 rounded-2xl border-2 border-dashed border-slate-800 bg-slate-900">
+          <div className="w-16 h-16 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mb-4">
+            <LayoutGrid className="w-7 h-7 text-slate-500" />
           </div>
-          <p className="text-slate-400 font-medium">No project selected</p>
-          <p className="text-slate-600 text-sm mt-1">Select a project from the sidebar to load its board.</p>
+          <p className="text-white font-semibold">No project selected</p>
+          <p className="text-slate-500 text-sm mt-1">Select a project from the dropdown in the sidebar.</p>
         </div>
       )}
 
@@ -498,20 +515,23 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
             return (
               <div
                 key={section.id}
-                className={`flex flex-col rounded-2xl flex-shrink-0 w-72 border transition-all duration-200 shadow-lg ${
+                className={`flex flex-col rounded-2xl flex-shrink-0 w-72 border transition-all duration-200 ${
                   isDragOver
-                    ? 'border-primary-500/50 bg-slate-900/80 shadow-primary-900/20'
-                    : 'border-slate-800 bg-slate-900/50'
+                    ? 'border-primary-500 shadow-lg shadow-primary-500/10 bg-slate-900'
+                    : 'border-slate-800 bg-slate-900'
                 }`}
                 onDrop={(e) => handleDrop(e, section.id)}
                 onDragOver={(e) => { e.preventDefault(); setDragOverSectionId(section.id) }}
                 onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOverSectionId(null) }}
               >
-                {/* Column top accent */}
+                {/* Column top accent bar */}
                 <div className={`h-1 w-full rounded-t-2xl ${colColor.bar}`} />
 
-                {/* Column header */}
-                <div className="px-4 py-3 flex items-center gap-2">
+                {/* Plane-style column header */}
+                <div className="px-3 pt-3 pb-2.5 flex items-center gap-2 border-b border-slate-800">
+                  {/* Colored dot */}
+                  <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${colColor.bar}`} />
+
                   {isEditingThis ? (
                     <input
                       ref={editSectionRef}
@@ -521,13 +541,14 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
                         if (e.key === 'Enter') handleRenameSection(section.id)
                         if (e.key === 'Escape') setEditingSectionId(null)
                       }}
-                      className="flex-1 rounded-lg bg-slate-800 border border-primary-500/50 px-2.5 py-1 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
+                      className="flex-1 rounded-md bg-slate-800 border border-primary-500 px-2 py-0.5 text-sm text-white focus:outline-none focus:ring-1 focus:ring-primary-500"
                     />
                   ) : (
-                    <h3 className="flex-1 font-semibold text-slate-200 text-sm truncate">{section.name}</h3>
+                    <h3 className="flex-1 font-semibold text-white text-sm truncate">{section.name}</h3>
                   )}
 
-                  <span className={`text-xs font-bold px-2 py-0.5 rounded-full shrink-0 ${colColor.count}`}>
+                  {/* Card count */}
+                  <span className="text-xs font-semibold text-slate-500 shrink-0 tabular-nums">
                     {colCards.length}
                   </span>
 
@@ -536,30 +557,51 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
                       {isEditingThis ? (
                         <>
                           <button onClick={() => handleRenameSection(section.id)}
-                            className="p-1 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition">
+                            className="p-1 rounded-md text-emerald-400 hover:bg-slate-800 transition">
                             <Check className="w-3.5 h-3.5" />
                           </button>
                           <button onClick={() => setEditingSectionId(null)}
-                            className="p-1 rounded-lg text-slate-500 hover:bg-slate-800 transition">
+                            className="p-1 rounded-md text-slate-500 hover:bg-slate-800 transition">
                             <X className="w-3.5 h-3.5" />
                           </button>
                         </>
                       ) : (
                         <>
+                          {/* + Add card directly in header */}
                           <button
-                            onClick={() => { setEditingSectionId(section.id); setEditingSectionName(section.name) }}
-                            className="p-1 rounded-lg text-slate-600 hover:text-slate-300 hover:bg-slate-800 transition"
+                            onClick={() => startCreate(section.id)}
+                            disabled={!selectedProjectId}
+                            title="Add card"
+                            className="p-1 rounded-md text-slate-600 hover:text-white hover:bg-slate-800 transition disabled:opacity-40"
                           >
-                            <Pencil className="w-3 h-3" />
+                            <Plus className="w-3.5 h-3.5" />
                           </button>
-                          {sections.length > 1 && (
+                          {/* ··· options */}
+                          <div className="relative group/menu">
                             <button
-                              onClick={() => setDeletingSectionId(section.id)}
-                              className="p-1 rounded-lg text-slate-600 hover:text-red-400 hover:bg-red-500/10 transition"
+                              className="p-1 rounded-md text-slate-600 hover:text-white hover:bg-slate-800 transition"
+                              title="Options"
                             >
-                              <Trash2 className="w-3 h-3" />
+                              <MoreHorizontal className="w-3.5 h-3.5" />
                             </button>
-                          )}
+                            {/* Dropdown */}
+                            <div className="absolute right-0 top-full mt-1 w-36 bg-slate-900 border border-slate-700 rounded-lg shadow-xl z-20 py-1 hidden group-hover/menu:block">
+                              <button
+                                onClick={() => { setEditingSectionId(section.id); setEditingSectionName(section.name) }}
+                                className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-slate-300 hover:bg-slate-800 hover:text-white transition"
+                              >
+                                <Pencil className="w-3 h-3" /> Rename
+                              </button>
+                              {sections.length > 1 && (
+                                <button
+                                  onClick={() => setDeletingSectionId(section.id)}
+                                  className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-red-400 hover:bg-slate-800 transition"
+                                >
+                                  <Trash2 className="w-3 h-3" /> Delete
+                                </button>
+                              )}
+                            </div>
+                          </div>
                         </>
                       )}
                     </div>
@@ -567,7 +609,7 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
                 </div>
 
                 {/* Cards */}
-                <div className="flex-1 px-3 pb-3 space-y-2.5 overflow-y-auto">
+                <div className="flex-1 px-3 pt-3 pb-3 space-y-2.5 overflow-y-auto">
                   {colCards.map((card) => {
                     const assignee   = teamMembers.find((m) => m.id === card.assigneeId)
                     const cardLabels = projectLabels.filter((l) => card.labelIds.includes(l.id))
@@ -578,24 +620,28 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
                         draggable
                         onDragStart={(e) => handleDragStart(e, card.id)}
                         onClick={() => setSelectedCard(card)}
-                        className={`group relative bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 hover:border-slate-600 border-l-2 ${PRIORITY_LEFT[card.priority]} rounded-xl p-3.5 cursor-pointer select-none transition-all duration-150 hover:shadow-lg hover:shadow-black/20 hover:-translate-y-0.5`}
+                        className={`group relative bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 border-l-4 ${PRIORITY_LEFT[card.priority]} rounded-xl p-3.5 cursor-pointer select-none transition-all duration-150 hover:shadow-xl hover:shadow-black/30 hover:-translate-y-0.5`}
                       >
                         {/* Card top row */}
-                        <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center justify-between mb-2.5">
                           <div className="flex items-center gap-1.5">
                             <span className={`w-2 h-2 rounded-full shrink-0 ${PRIORITY_DOT[card.priority]}`} />
-                            <span className="text-[10px] font-mono text-slate-600">#{card.id.split('-').pop()}</span>
+                            <span className="text-[10px] font-mono text-slate-500">#{card.id.split('-').pop()}</span>
                           </div>
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-600 opacity-0 group-hover:opacity-100 transition">
+                          <span className={`text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 rounded-full opacity-0 group-hover:opacity-100 transition ${
+                            card.priority === 'High' ? 'bg-red-900 text-red-300' :
+                            card.priority === 'Medium' ? 'bg-amber-900 text-amber-300' :
+                            'bg-blue-900 text-blue-300'
+                          }`}>
                             {card.priority}
                           </span>
                         </div>
 
                         {/* Title */}
-                        <h4 className="text-sm font-semibold text-slate-200 leading-snug mb-1.5 group-hover:text-white transition">
+                        <h4 className="text-sm font-semibold text-white leading-snug mb-1.5">
                           {card.title}
                         </h4>
-                        <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed mb-3">{card.description}</p>
+                        <p className="text-xs text-slate-400 line-clamp-2 leading-relaxed mb-3">{card.description}</p>
 
                         {/* Labels */}
                         {cardLabels.length > 0 && (
@@ -613,10 +659,10 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
                         )}
 
                         {/* Footer */}
-                        <div className="flex items-center justify-between border-t border-slate-700/50 pt-2.5">
+                        <div className="flex items-center justify-between border-t border-slate-700 pt-2.5 mt-1">
                           <div className="flex items-center gap-2">
                             {/* Story points */}
-                            <div className="w-6 h-6 rounded-lg bg-primary-500/15 border border-primary-500/20 flex items-center justify-center text-[10px] font-bold text-primary-400">
+                            <div className="w-6 h-6 rounded-lg bg-slate-900 border border-slate-700 flex items-center justify-center text-[10px] font-bold text-primary-400">
                               {card.points}
                             </div>
                             {/* Comments */}
@@ -633,13 +679,13 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
                           {/* Assignee avatar */}
                           {assignee ? (
                             <div
-                              className="w-6 h-6 rounded-full bg-primary-600/30 border border-primary-500/40 flex items-center justify-center text-[9px] font-bold text-primary-300"
+                              className="w-6 h-6 rounded-full bg-primary-700 border border-primary-600 flex items-center justify-center text-[9px] font-bold text-white"
                               title={assignee.fullName}
                             >
                               {initials(assignee.fullName)}
                             </div>
                           ) : (
-                            <div className="w-6 h-6 rounded-full border border-dashed border-slate-700" />
+                            <div className="w-6 h-6 rounded-full border-2 border-dashed border-slate-700" title="Unassigned" />
                           )}
                         </div>
                       </div>
@@ -648,21 +694,34 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
 
                   {/* Empty drop zone */}
                   {colCards.length === 0 && (
-                    <div className={`h-24 flex items-center justify-center rounded-xl border-2 border-dashed transition-colors ${
-                      isDragOver ? 'border-primary-500/40 bg-primary-500/5 text-primary-400' : 'border-slate-800 text-slate-700'
-                    } text-xs text-center px-3`}>
-                      {isDragOver ? 'Drop here' : 'No cards'}
+                    <div className={`h-24 flex flex-col items-center justify-center rounded-xl border-2 border-dashed transition-all ${
+                      isDragOver
+                        ? 'border-primary-500 bg-primary-900 text-primary-400'
+                        : 'border-slate-800 text-slate-600'
+                    } text-xs text-center px-3 gap-1.5`}>
+                      {isDragOver ? (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          <span>Drop here</span>
+                        </>
+                      ) : (
+                        <>
+                          <LayoutGrid className="w-4 h-4 opacity-40" />
+                          <span>No cards yet</span>
+                        </>
+                      )}
                     </div>
                   )}
 
-                  {/* Add card */}
+                  {/* Add card — bottom of column */}
                   {canEdit && (
                     <button
                       onClick={() => startCreate(section.id)}
                       disabled={!selectedProjectId}
-                      className="w-full flex items-center justify-center gap-1.5 text-xs text-slate-600 hover:text-slate-300 py-2 rounded-xl hover:bg-slate-800/60 border border-transparent hover:border-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-slate-600 hover:text-primary-400 hover:bg-slate-800 border border-transparent hover:border-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
                     >
-                      <Plus className="w-3.5 h-3.5" /> Add card
+                      <Plus className="w-3.5 h-3.5 shrink-0" />
+                      <span>Add issue</span>
                     </button>
                   )}
                 </div>
@@ -670,43 +729,50 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
             )
           })}
 
-          {/* Add new section */}
+          {/* ── Plane-style Add Section column ── */}
           {canEdit && (
-            <div className="flex-shrink-0 w-64">
+            <div className="flex-shrink-0 w-72">
               {showAddSection ? (
-                <div className="bg-slate-900 border border-slate-700 rounded-2xl p-3.5 shadow-xl space-y-2.5">
-                  <input
-                    ref={addSectionRef}
-                    value={addingSectionName}
-                    onChange={(e) => setAddingSectionName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') handleAddSection()
-                      if (e.key === 'Escape') setShowAddSection(false)
-                    }}
-                    placeholder="Section name…"
-                    className="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/30"
-                  />
-                  <div className="flex gap-2">
+                /* Expanded: looks like a real column being named */
+                <div className="flex flex-col rounded-2xl border border-primary-500 bg-slate-900 overflow-hidden">
+                  <div className="h-1 w-full bg-primary-500 rounded-t-2xl" />
+                  <div className="px-3 pt-3 pb-2.5 flex items-center gap-2 border-b border-slate-800">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary-500 shrink-0" />
+                    <input
+                      ref={addSectionRef}
+                      value={addingSectionName}
+                      onChange={(e) => setAddingSectionName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleAddSection()
+                        if (e.key === 'Escape') { setShowAddSection(false); setAddingSectionName('') }
+                      }}
+                      placeholder="Section name…"
+                      className="flex-1 bg-transparent border-none text-sm font-semibold text-white placeholder-slate-600 focus:outline-none"
+                    />
+                  </div>
+                  <div className="px-3 py-3 flex gap-2">
                     <button
                       onClick={handleAddSection}
-                      className="flex-1 py-2 rounded-xl bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold transition shadow-lg shadow-primary-900/30"
+                      className="flex-1 py-1.5 rounded-lg bg-primary-600 hover:bg-primary-500 text-white text-xs font-semibold transition"
                     >
-                      Add section
+                      Create Section
                     </button>
                     <button
                       onClick={() => { setShowAddSection(false); setAddingSectionName('') }}
-                      className="p-2 rounded-xl text-slate-500 hover:bg-slate-800 hover:text-slate-300 transition"
+                      className="px-3 py-1.5 rounded-lg text-slate-500 hover:bg-slate-800 hover:text-slate-300 text-xs transition"
                     >
-                      <X className="w-4 h-4" />
+                      Cancel
                     </button>
                   </div>
                 </div>
               ) : (
+                /* Collapsed: Plane-style "Add Section" button column */
                 <button
                   onClick={() => setShowAddSection(true)}
-                  className="w-full h-14 flex items-center justify-center gap-2 text-sm text-slate-600 border-2 border-dashed border-slate-800 rounded-2xl hover:border-primary-500/40 hover:text-primary-400 hover:bg-primary-500/5 transition"
+                  className="group w-full h-14 flex items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-slate-800 hover:border-primary-500 text-slate-600 hover:text-primary-400 hover:bg-slate-900 transition-all duration-200 text-sm font-medium"
                 >
-                  <Plus className="w-4 h-4" /> Add section
+                  <Plus className="w-4 h-4 transition-transform group-hover:scale-110 duration-200" />
+                  Add Section
                 </button>
               )}
             </div>

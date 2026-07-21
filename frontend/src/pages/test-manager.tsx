@@ -4,7 +4,7 @@ import React, { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '@/components/Layout'
 import Button from '@/components/Button'
-import { Filter, Settings, ClipboardList } from 'lucide-react'
+import { Filter, Settings, ClipboardList, X, CheckCircle2, XCircle, Clock } from 'lucide-react'
 import { useProjectContext } from '@/context/ProjectContext'
 
 type ModalMode = 'view' | 'edit' | 'create'
@@ -23,24 +23,41 @@ type TestCase = {
 }
 
 const statusColors: Record<string, string> = {
-  Passed: 'bg-emerald-900/30 text-emerald-300',
-  Failed: 'bg-rose-900/30 text-rose-300',
-  'In Progress': 'bg-primary-900/30 text-primary-300',
-  'Not Started': 'bg-slate-800 text-slate-400',
+  Passed:       'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30',
+  Failed:       'bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/30',
+  'In Progress':'bg-primary-500/15 text-primary-300 ring-1 ring-primary-500/30',
+  'Not Started':'bg-zinc-800 text-zinc-400 ring-1 ring-zinc-700',
 }
 
 const priorityColors: Record<string, string> = {
-  Critical: 'bg-rose-900/30 text-rose-300',
-  High: 'bg-orange-900/30 text-orange-300',
-  Medium: 'bg-amber-900/30 text-amber-300',
-  Low: 'bg-slate-800 text-slate-400',
+  Critical: 'bg-rose-500/15 text-rose-300 ring-1 ring-rose-500/30',
+  High:     'bg-orange-500/15 text-orange-300 ring-1 ring-orange-500/30',
+  Medium:   'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30',
+  Low:      'bg-zinc-800 text-zinc-400 ring-1 ring-zinc-700',
 }
 
-const badgeBase = 'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-[0.3em]'
+const priorityActivePill: Record<string, string> = {
+  Critical: 'bg-rose-500/20 text-rose-300 ring-2 ring-rose-500/40',
+  High:     'bg-orange-500/20 text-orange-300 ring-2 ring-orange-500/40',
+  Medium:   'bg-amber-500/20 text-amber-300 ring-2 ring-amber-500/40',
+  Low:      'bg-zinc-700 text-zinc-300 ring-2 ring-zinc-500',
+}
+
+const statusActivePill: Record<string, string> = {
+  Passed:       'bg-emerald-500/20 text-emerald-300 ring-2 ring-emerald-500/40',
+  Failed:       'bg-rose-500/20 text-rose-300 ring-2 ring-rose-500/40',
+  'In Progress':'bg-primary-500/20 text-primary-300 ring-2 ring-primary-500/40',
+  'Not Started':'bg-zinc-700 text-zinc-300 ring-2 ring-zinc-500',
+}
+
+const badgeBase = 'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold'
 
 const renderBadge = (value: string, map?: Record<string, string>) => (
-  <span className={`${badgeBase} ${map?.[value] ?? 'bg-slate-800 text-slate-400'}`}>{value}</span>
+  <span className={`${badgeBase} ${map?.[value] ?? 'bg-zinc-800 text-zinc-400 ring-1 ring-zinc-700'}`}>{value}</span>
 )
+
+const inputCls = 'w-full rounded-xl border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm text-zinc-100 placeholder-zinc-500 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 transition-colors'
+const labelCls = 'block text-xs font-medium text-zinc-400 mb-1.5'
 
 export default function TestManagerPage() {
   const router = useRouter()
@@ -155,52 +172,61 @@ export default function TestManagerPage() {
   const renderModalBody = () => {
     if (!modalMode) return null
 
-    const renderHeader = (label: string, value: string, badgeMap?: Record<string, string>) => (
-      <div>
-        <p className="text-xs uppercase tracking-[0.4em] text-slate-400">{label}</p>
-        {badgeMap ? (
-          renderBadge(value, badgeMap)
-        ) : (
-          <p className="text-lg font-semibold text-white">{value}</p>
-        )}
-      </div>
-    )
-
     if (modalMode === 'view' && modalTestCase) {
       const steps = modalTestCase.steps?.split('\n').filter(Boolean) ?? []
       return (
-        <div className="space-y-6">
-          <div className="flex flex-wrap gap-6">
-            {renderHeader('ID', modalTestCase.id)}
-            {renderHeader('Requirement', modalTestCase.requirement)}
-            {renderHeader('Scenario', modalTestCase.scenario)}
-            {renderHeader('Priority', modalTestCase.priority, priorityColors)}
-            {renderHeader('Status', modalTestCase.status, statusColors)}
-          </div>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <article className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Preconditions</p>
-              <p className="mt-2 text-sm text-slate-300">{modalTestCase.preconditions ?? 'Not specified'}</p>
-            </article>
-            <article className="rounded-2xl border border-slate-800 bg-slate-900 p-4">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Expected Result</p>
-              <p className="mt-2 text-sm text-slate-300">{modalTestCase.expectedResult ?? 'Not specified'}</p>
-            </article>
-          </div>
-          <section className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Steps</p>
-              <span className="text-xs text-slate-400">Updated {modalTestCase.updated}</span>
+        <div className="space-y-5">
+          {/* Meta row */}
+          <div className="flex flex-wrap gap-3">
+            <div className="rounded-lg bg-zinc-800/60 px-3 py-2 min-w-[80px]">
+              <p className="text-[10px] font-medium text-zinc-500 mb-0.5">ID</p>
+              <p className="text-sm font-semibold text-white">{modalTestCase.id}</p>
             </div>
-            <ol className="space-y-2 pl-4 text-sm leading-relaxed text-slate-300">
+            <div className="rounded-lg bg-zinc-800/60 px-3 py-2 flex-1 min-w-[120px]">
+              <p className="text-[10px] font-medium text-zinc-500 mb-0.5">Requirement</p>
+              <p className="text-sm font-semibold text-white">{modalTestCase.requirement}</p>
+            </div>
+            <div className="rounded-lg bg-zinc-800/60 px-3 py-2 flex-1 min-w-[120px]">
+              <p className="text-[10px] font-medium text-zinc-500 mb-0.5">Scenario</p>
+              <p className="text-sm font-semibold text-white">{modalTestCase.scenario}</p>
+            </div>
+            <div className="flex items-center gap-2 self-center">
+              {renderBadge(modalTestCase.priority, priorityColors)}
+              {renderBadge(modalTestCase.status, statusColors)}
+            </div>
+          </div>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <article className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <p className="text-xs font-medium text-zinc-500 mb-2">Preconditions</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{modalTestCase.preconditions || 'Not specified'}</p>
+            </article>
+            <article className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+              <p className="text-xs font-medium text-zinc-500 mb-2">Expected Result</p>
+              <p className="text-sm text-zinc-300 leading-relaxed">{modalTestCase.expectedResult || 'Not specified'}</p>
+            </article>
+          </div>
+
+          <article className="rounded-xl border border-zinc-800 bg-zinc-900/60 p-4">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-medium text-zinc-500">Steps</p>
+              <span className="text-xs text-zinc-600">Updated {modalTestCase.updated}</span>
+            </div>
+            <ol className="space-y-2 text-sm leading-relaxed text-zinc-300">
               {steps.length > 0 ? (
-                steps.map((step) => <li key={step}>{step}</li>)
+                steps.map((step, i) => (
+                  <li key={i} className="flex gap-2.5">
+                    <span className="shrink-0 w-5 h-5 rounded-full bg-primary-500/20 text-primary-400 text-xs flex items-center justify-center font-semibold mt-0.5">{i + 1}</span>
+                    <span>{step}</span>
+                  </li>
+                ))
               ) : (
-                <li>No steps provided.</li>
+                <li className="text-zinc-500">No steps provided.</li>
               )}
             </ol>
-          </section>
-          <div className="flex justify-end gap-3">
+          </article>
+
+          <div className="flex justify-end gap-3 border-t border-zinc-800 pt-4">
             <Button variant="outline" size="sm" onClick={closeModal}>Close</Button>
             <Button variant="secondary" size="sm" onClick={() => setModalMode('edit')}>Edit</Button>
           </div>
@@ -210,87 +236,99 @@ export default function TestManagerPage() {
 
     if (modalMode === 'edit' && editForm) {
       return (
-        <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Title</span>
+        <div className="space-y-5">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <label className={labelCls}>Title</label>
               <input
                 value={editForm.title}
                 onChange={(e) => handleEditChange('title', e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                placeholder="Enter test case title"
+                className={inputCls}
               />
-            </label>
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Scenario</span>
+            </div>
+            <div>
+              <label className={labelCls}>Scenario</label>
               <input
                 value={editForm.scenario}
                 onChange={(e) => handleEditChange('scenario', e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                placeholder="Feature or scenario name"
+                className={inputCls}
               />
-            </label>
+            </div>
           </div>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Priority</span>
-              <select
-                value={editForm.priority}
-                onChange={(e) => handleEditChange('priority', e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-              >
-                <option>Critical</option>
-                <option>High</option>
-                <option>Medium</option>
-                <option>Low</option>
-              </select>
-            </label>
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Status</span>
-              <select
-                value={editForm.status}
-                onChange={(e) => handleEditChange('status', e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-              >
-                <option>Passed</option>
-                <option>Failed</option>
-                <option>In Progress</option>
-                <option>Not Started</option>
-              </select>
-            </label>
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <label className={labelCls}>Priority</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {(['Critical', 'High', 'Medium', 'Low'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handleEditChange('priority', p)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      editForm.priority === p
+                        ? priorityActivePill[p]
+                        : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300'
+                    }`}
+                  >{p}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Status</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {(['Passed', 'Failed', 'In Progress', 'Not Started'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleEditChange('status', s)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      editForm.status === s
+                        ? statusActivePill[s]
+                        : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300'
+                    }`}
+                  >{s}</button>
+                ))}
+              </div>
+            </div>
           </div>
-          <div className="flex gap-3">
-            {renderBadge(editForm.priority, priorityColors)}
-            {renderBadge(editForm.status, statusColors)}
-          </div>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Preconditions</span>
+
+          <div>
+            <label className={labelCls}>Preconditions</label>
             <textarea
               value={editForm.preconditions}
               onChange={(e) => handleEditChange('preconditions', e.target.value)}
               rows={3}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              placeholder="List any preconditions…"
+              className={inputCls}
             />
-          </label>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Expected Result</span>
+          </div>
+          <div>
+            <label className={labelCls}>Expected Result</label>
             <textarea
               value={editForm.expectedResult}
               onChange={(e) => handleEditChange('expectedResult', e.target.value)}
               rows={3}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              placeholder="Describe the expected outcome…"
+              className={inputCls}
             />
-          </label>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Steps</span>
+          </div>
+          <div>
+            <label className={labelCls}>Steps <span className="text-zinc-600 font-normal">(one per line)</span></label>
             <textarea
               value={editForm.steps}
               onChange={(e) => handleEditChange('steps', e.target.value)}
               rows={4}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              placeholder={"1. Navigate to…\n2. Click…\n3. Verify…"}
+              className={inputCls}
             />
-          </label>
-          <div className="flex justify-end gap-3">
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-zinc-800 pt-4">
             <Button variant="outline" size="sm" onClick={closeModal}>Cancel</Button>
-            <Button variant="secondary" size="sm">Save</Button>
+            <Button variant="secondary" size="sm">Save Changes</Button>
           </div>
         </div>
       )
@@ -298,95 +336,112 @@ export default function TestManagerPage() {
 
     if (modalMode === 'create') {
       return (
-        <div className="space-y-6">
-          <div className="grid gap-6 lg:grid-cols-2">
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Title</span>
+        <div className="space-y-5">
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <label className={labelCls}>Title <span className="text-rose-400">*</span></label>
               <input
                 value={createForm.title}
                 onChange={(e) => handleCreateChange('title', e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                placeholder="e.g. Verify login with valid credentials"
+                className={inputCls}
               />
-            </label>
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Requirement</span>
+            </div>
+            <div>
+              <label className={labelCls}>Requirement</label>
               <input
                 value={createForm.requirement}
                 onChange={(e) => handleCreateChange('requirement', e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+                placeholder="e.g. REQ-001"
+                className={inputCls}
               />
-            </label>
+            </div>
           </div>
-          <div className="grid gap-6 lg:grid-cols-2">
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Scenario</span>
-              <input
-                value={createForm.scenario}
-                onChange={(e) => handleCreateChange('scenario', e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-              />
-            </label>
-            <label className="block space-y-2 text-sm text-slate-300">
-              <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Priority</span>
-              <select
-                value={createForm.priority}
-                onChange={(e) => handleCreateChange('priority', e.target.value)}
-                className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-              >
-                <option>Critical</option>
-                <option>High</option>
-                <option>Medium</option>
-                <option>Low</option>
-              </select>
-            </label>
+
+          <div>
+            <label className={labelCls}>Scenario</label>
+            <input
+              value={createForm.scenario}
+              onChange={(e) => handleCreateChange('scenario', e.target.value)}
+              placeholder="Feature or scenario this test covers"
+              className={inputCls}
+            />
           </div>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Status</span>
-            <select
-              value={createForm.status}
-              onChange={(e) => handleCreateChange('status', e.target.value)}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
-            >
-              <option>Passed</option>
-              <option>Failed</option>
-              <option>In Progress</option>
-              <option>Not Started</option>
-            </select>
-          </label>
-          <div className="flex gap-3">
-            {renderBadge(createForm.priority, priorityColors)}
-            {renderBadge(createForm.status, statusColors)}
+
+          <div className="grid gap-4 lg:grid-cols-2">
+            <div>
+              <label className={labelCls}>Priority</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {(['Critical', 'High', 'Medium', 'Low'] as const).map((p) => (
+                  <button
+                    key={p}
+                    type="button"
+                    onClick={() => handleCreateChange('priority', p)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      createForm.priority === p
+                        ? priorityActivePill[p]
+                        : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300'
+                    }`}
+                  >{p}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={labelCls}>Status</label>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {(['Not Started', 'In Progress', 'Passed', 'Failed'] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => handleCreateChange('status', s)}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+                      createForm.status === s
+                        ? statusActivePill[s]
+                        : 'bg-zinc-800 text-zinc-500 hover:bg-zinc-700 hover:text-zinc-300'
+                    }`}
+                  >{s}</button>
+                ))}
+              </div>
+            </div>
           </div>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Preconditions</span>
+
+          <div>
+            <label className={labelCls}>Preconditions</label>
             <textarea
               value={createForm.preconditions}
               onChange={(e) => handleCreateChange('preconditions', e.target.value)}
-              rows={3}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              rows={2}
+              placeholder="List any setup steps or preconditions required…"
+              className={inputCls}
             />
-          </label>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Expected Result</span>
+          </div>
+          <div>
+            <label className={labelCls}>Expected Result</label>
             <textarea
               value={createForm.expectedResult}
               onChange={(e) => handleCreateChange('expectedResult', e.target.value)}
-              rows={3}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              rows={2}
+              placeholder="Describe the expected outcome of this test…"
+              className={inputCls}
             />
-          </label>
-          <label className="block space-y-2 text-sm text-slate-300">
-            <span className="text-xs uppercase tracking-[0.4em] text-slate-400">Steps</span>
+          </div>
+          <div>
+            <label className={labelCls}>Steps <span className="text-zinc-600 font-normal">(one per line)</span></label>
             <textarea
               value={createForm.steps}
               onChange={(e) => handleCreateChange('steps', e.target.value)}
               rows={4}
-              className="w-full rounded-2xl border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-100 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20"
+              placeholder={"Navigate to the login page\nEnter valid email and password\nClick the Sign In button\nVerify user is redirected to dashboard"}
+              className={inputCls}
             />
-          </label>
-          <div className="flex justify-end gap-3">
+          </div>
+
+          <div className="flex justify-end gap-3 border-t border-zinc-800 pt-4">
             <Button variant="outline" size="sm" onClick={closeModal}>Cancel</Button>
-            <Button variant="secondary" size="sm">Create</Button>
+            <Button size="sm">
+              <ClipboardList className="w-3.5 h-3.5 mr-1.5" />
+              Create Test Case
+            </Button>
           </div>
         </div>
       )
@@ -400,10 +455,10 @@ export default function TestManagerPage() {
       <div className="p-6 space-y-6">
         <header className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Quality Ops</p>
-            <h1 className="text-3xl font-semibold text-white">Test Case Manager</h1>
-            <p className="text-sm text-slate-500 max-w-2xl">
-              Organize, filter, and batch manage all generated test cases with clarity and productivity insights.
+            <p className="text-xs font-medium text-primary-400 mb-1">Quality Ops</p>
+            <h1 className="text-2xl font-bold text-white">Test Case Manager</h1>
+            <p className="text-sm text-zinc-500 mt-1">
+              Organize, filter, and manage all test cases for the selected project.
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -418,72 +473,81 @@ export default function TestManagerPage() {
           </div>
         </header>
 
-        <section className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
+        <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: 'Total', value: stats.total },
-            { label: 'Passed', value: stats.passed },
-            { label: 'Failed', value: stats.failed },
-            { label: 'In Progress', value: stats.inProgress },
-          ].map((kpi) => (
-            <article key={kpi.label} className="rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-sm">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">{kpi.label}</p>
-              <p className="text-3xl font-semibold text-white">{kpi.value}</p>
+            { label: 'Total Cases', value: stats.total, icon: ClipboardList, color: 'text-zinc-400', bg: 'bg-zinc-800/60' },
+            { label: 'Passed', value: stats.passed, icon: CheckCircle2, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+            { label: 'Failed', value: stats.failed, icon: XCircle, color: 'text-rose-400', bg: 'bg-rose-500/10' },
+            { label: 'In Progress', value: stats.inProgress, icon: Clock, color: 'text-primary-400', bg: 'bg-primary-500/10' },
+          ].map(({ label, value, icon: Icon, color, bg }) => (
+            <article key={label} className="rounded-xl border border-zinc-800 bg-zinc-900/50 p-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-xs font-medium text-zinc-500">{label}</p>
+                <div className={`w-7 h-7 rounded-lg ${bg} flex items-center justify-center`}>
+                  <Icon className={`w-3.5 h-3.5 ${color}`} />
+                </div>
+              </div>
+              <p className="text-3xl font-bold text-white">{value}</p>
             </article>
           ))}
         </section>
 
-        <div className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-soft">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <div className="flex flex-col gap-1">
-              <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Search & filter</p>
+        <div className="rounded-xl border border-zinc-800 bg-zinc-900/50 overflow-hidden">
+          {/* Toolbar */}
+          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between px-5 py-4 border-b border-zinc-800">
+            <div className="relative">
               <input
                 placeholder="Search test cases, requirements…"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/15"
+                className="w-full md:w-72 rounded-xl border border-zinc-700 bg-zinc-900 pl-9 pr-4 py-2 text-sm text-zinc-300 placeholder-zinc-600 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20"
               />
+              <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <circle cx="11" cy="11" r="8"/><path strokeLinecap="round" d="M21 21l-4.35-4.35"/>
+              </svg>
             </div>
-            <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
-              <select
-                value={filter}
-                onChange={(e) => setFilter(e.target.value)}
-                className="rounded-full border border-slate-700 bg-slate-800 px-4 py-2 text-sm text-slate-300"
-              >
-                <option>All Status</option>
-                <option>Passed</option>
-                <option>Failed</option>
-                <option>In Progress</option>
-                <option>Not Started</option>
-              </select>
+            <div className="flex flex-wrap items-center gap-2">
+              {['All Status', 'Passed', 'Failed', 'In Progress', 'Not Started'].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setFilter(s)}
+                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+                    filter === s
+                      ? 'bg-primary-500/20 text-primary-300 ring-1 ring-primary-500/40'
+                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+                  }`}
+                >{s}</button>
+              ))}
               <Button variant="outline" size="sm">
-                <Settings className="mr-2 h-4 w-4" />
+                <Settings className="mr-2 h-3.5 w-3.5" />
                 Bulk Actions
               </Button>
             </div>
           </div>
 
-          <div className="mt-6 overflow-x-auto">
-            {!selectedProject && (
-              <div className="rounded-xl border border-slate-800 bg-slate-800/50 p-6 text-sm text-slate-400">
-                Select a project from the dropdown next to the logo to view its test cases.
-              </div>
-            )}
-            <table className="w-full text-left text-sm text-slate-300">
+          {!selectedProject && (
+            <div className="px-5 py-8 text-sm text-zinc-500 text-center">
+              Select a project from the sidebar dropdown to view its test cases.
+            </div>
+          )}
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm text-zinc-300">
               <thead>
-                <tr className="text-xs uppercase tracking-[0.4em] text-slate-400">
-                  <th className="px-4 py-3">ID</th>
-                  <th className="px-4 py-3">Title</th>
-                  <th className="px-4 py-3">Requirement</th>
-                  <th className="px-4 py-3">Scenario</th>
-                  <th className="px-4 py-3">Priority</th>
-                  <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Last Updated</th>
+                <tr className="border-b border-zinc-800">
+                  <th className="px-5 py-3 text-xs font-medium text-zinc-500">ID</th>
+                  <th className="px-5 py-3 text-xs font-medium text-zinc-500">Title</th>
+                  <th className="px-5 py-3 text-xs font-medium text-zinc-500">Requirement</th>
+                  <th className="px-5 py-3 text-xs font-medium text-zinc-500">Scenario</th>
+                  <th className="px-5 py-3 text-xs font-medium text-zinc-500">Priority</th>
+                  <th className="px-5 py-3 text-xs font-medium text-zinc-500">Status</th>
+                  <th className="px-5 py-3 text-xs font-medium text-zinc-500">Updated</th>
                 </tr>
               </thead>
               <tbody>
                 {selectedProject && filtered.length === 0 && (
-                  <tr className="border-t border-slate-800">
-                    <td colSpan={7} className="px-4 py-6 text-center text-slate-400">
+                  <tr>
+                    <td colSpan={7} className="px-5 py-8 text-center text-zinc-500 text-sm">
                       No test cases found for this project.
                     </td>
                   </tr>
@@ -491,27 +555,27 @@ export default function TestManagerPage() {
                 {filtered.map((testCase) => (
                   <tr
                     key={testCase.id}
-                    className="border-t border-slate-800 hover:bg-slate-800/50 cursor-pointer"
+                    className="border-t border-zinc-800/60 hover:bg-zinc-800/40 cursor-pointer transition-colors"
                     onClick={() => {
                       setModalTestCase(testCase)
                       setModalMode('view')
                     }}
                   >
-                    <td className="px-4 py-3 font-semibold text-white">{testCase.id}</td>
-                    <td className="px-4 py-3">{testCase.title}</td>
-                    <td className="px-4 py-3">{testCase.requirement}</td>
-                    <td className="px-4 py-3">{testCase.scenario}</td>
-                    <td className="px-4 py-3">
-                      <span className="rounded-full border border-slate-700 bg-slate-800 px-3 py-1 text-[10px] uppercase tracking-[0.3em] text-slate-300">
+                    <td className="px-5 py-3.5 font-mono text-xs font-semibold text-primary-400">{testCase.id}</td>
+                    <td className="px-5 py-3.5 font-medium text-zinc-200 max-w-[200px] truncate">{testCase.title}</td>
+                    <td className="px-5 py-3.5 text-zinc-400">{testCase.requirement}</td>
+                    <td className="px-5 py-3.5 text-zinc-400 max-w-[140px] truncate">{testCase.scenario}</td>
+                    <td className="px-5 py-3.5">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${priorityColors[testCase.priority] ?? priorityColors.Low}`}>
                         {testCase.priority}
                       </span>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColors[testCase.status] || statusColors.Passed}`}>
+                    <td className="px-5 py-3.5">
+                      <span className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-semibold ${statusColors[testCase.status] ?? statusColors['Not Started']}`}>
                         {testCase.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-slate-400">{testCase.updated}</td>
+                    <td className="px-5 py-3.5 text-zinc-500 text-xs">{testCase.updated}</td>
                   </tr>
                 ))}
               </tbody>
@@ -519,19 +583,37 @@ export default function TestManagerPage() {
           </div>
         </div>
         {modalMode && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-            <div className="w-full max-w-4xl rounded-2xl border border-slate-800 bg-slate-950 p-6 shadow-2xl min-h-[520px] max-h-[86vh]">
-              <div className="mb-4 flex items-center justify-between">
-                <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Test Case</p>
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+            <div className="w-full max-w-2xl rounded-2xl border border-zinc-800 bg-zinc-950 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+              {/* Teal accent bar */}
+              <div className="h-0.5 w-full bg-gradient-to-r from-primary-500 to-primary-400 shrink-0" />
+
+              {/* Modal header */}
+              <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 shrink-0">
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-primary-500/15 flex items-center justify-center">
+                    <ClipboardList className="w-4 h-4 text-primary-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-sm font-semibold text-white">
+                      {modalMode === 'create' ? 'New Test Case' : modalMode === 'edit' ? 'Edit Test Case' : (modalTestCase?.title || 'Test Case')}
+                    </h2>
+                    <p className="text-xs text-zinc-500">
+                      {modalMode === 'create' ? 'Fill in the details below' : modalMode === 'edit' ? `Editing ${modalTestCase?.id}` : modalTestCase?.id}
+                    </p>
+                  </div>
+                </div>
                 <button
-                  className="text-slate-500 transition hover:text-white"
                   onClick={closeModal}
+                  className="w-7 h-7 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-zinc-400 hover:text-white flex items-center justify-center transition-all"
                   aria-label="Close modal"
                 >
-                  ×
+                  <X className="w-3.5 h-3.5" />
                 </button>
               </div>
-              <div className="max-h-[76vh] overflow-y-auto pr-2">
+
+              {/* Scrollable body */}
+              <div className="overflow-y-auto flex-1 px-6 py-5">
                 {renderModalBody()}
               </div>
             </div>
