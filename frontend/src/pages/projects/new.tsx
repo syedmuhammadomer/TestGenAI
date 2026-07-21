@@ -79,32 +79,32 @@ export default function NewProjectPage() {
   return (
     <Layout>
       <div className="max-w-3xl mx-auto py-10 space-y-6">
-        <div className="bg-white border border-slate-200 rounded-3xl p-8 space-y-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-8 space-y-6">
           <div>
             <p className="text-xs uppercase tracking-[0.5em] text-slate-400">New Project</p>
-            <h1 className="text-3xl font-semibold text-slate-900 mt-2">Create a project from your SRS</h1>
-            <p className="text-sm text-slate-500 mt-2">
+            <h1 className="text-3xl font-semibold text-white mt-2">Create a project from your SRS</h1>
+            <p className="text-sm text-slate-400 mt-2">
               Upload a PDF or Word document and we will extract features, user stories, and test cases automatically.
             </p>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-slate-600 font-medium">Project Name</label>
+            <label className="text-sm text-slate-300 font-medium">Project Name</label>
             <input
               type="text"
               value={projectName}
               onChange={(event) => setProjectName(event.target.value)}
               placeholder="E.g. Inventory Platform"
-              className="w-full bg-slate-50 border border-slate-200 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
+              className="w-full bg-slate-800 border border-slate-700 text-slate-100 placeholder:text-slate-500 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500"
             />
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-slate-600 font-medium">Upload SRS</label>
+            <label className="text-sm text-slate-300 font-medium">Upload SRS</label>
             <div className="relative group">
               <div
                 className={`flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl transition ${
-                  srsFile ? 'border-primary-400 bg-primary-50' : 'border-slate-200 bg-white/70 hover:border-slate-300'
+                  srsFile ? 'border-primary-400 bg-primary-900/20' : 'border-slate-700 bg-slate-800/70 hover:border-slate-600'
                 }`}
               >
                 <input
@@ -113,8 +113,8 @@ export default function NewProjectPage() {
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                   onChange={(event) => setSrsFile(event.target.files?.[0] || null)}
                 />
-                <Upload className="w-8 h-8 mb-2 text-slate-500" />
-                <p className="text-sm text-slate-500">
+                <Upload className="w-8 h-8 mb-2 text-slate-400" />
+                <p className="text-sm text-slate-400">
                   {srsFile ? srsFile.name : 'Click to upload PDF, DOC, or DOCX'}
                 </p>
               </div>
@@ -123,8 +123,8 @@ export default function NewProjectPage() {
 
           {progress > 0 && (
             <div className="space-y-2">
-              <p className="text-xs text-slate-500">{message}</p>
-              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+              <p className="text-xs text-slate-400">{message}</p>
+              <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
                 <div
                   className="h-2 bg-gradient-to-r from-primary-500 to-accent transition-all"
                   style={{ width: `${progress}%` }}
@@ -133,7 +133,7 @@ export default function NewProjectPage() {
             </div>
           )}
 
-          {error && <p className="text-sm text-rose-600">{error}</p>}
+          {error && <p className="text-sm text-rose-400">{error}</p>}
 
           <div className="flex justify-between items-center">
             <Button variant="outline" onClick={() => router.push('/projects')} disabled={isSubmitting}>

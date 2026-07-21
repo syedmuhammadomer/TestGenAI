@@ -90,19 +90,19 @@ export default function SettingsPage() {
       <div className="p-6 space-y-8 max-w-5xl">
         <header>
           <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Workspace</p>
-          <h1 className="text-3xl font-semibold text-slate-900">Settings</h1>
+          <h1 className="text-3xl font-semibold text-white">Settings</h1>
           <p className="text-sm text-slate-500 max-w-2xl">
             Manage the appearance of the app and control who has administrative access.
           </p>
         </header>
 
-        <div className="flex gap-2 border-b border-slate-200">
+        <div className="flex gap-2 border-b border-slate-800">
           <button
             onClick={() => setTab('theme')}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               tab === 'theme'
-                ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-primary-600 text-primary-400'
+                : 'border-transparent text-slate-500 hover:text-white'
             }`}
           >
             Theme
@@ -111,8 +111,8 @@ export default function SettingsPage() {
             onClick={() => setTab('permissions')}
             className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
               tab === 'permissions'
-                ? 'border-primary-600 text-primary-700'
-                : 'border-transparent text-slate-500 hover:text-slate-900'
+                ? 'border-primary-600 text-primary-400'
+                : 'border-transparent text-slate-500 hover:text-white'
             }`}
           >
             User Permissions
@@ -120,35 +120,35 @@ export default function SettingsPage() {
         </div>
 
         {tab === 'theme' && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft space-y-4">
-            <h2 className="text-lg font-semibold text-slate-900">Appearance</h2>
-            <p className="text-sm text-slate-500">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-soft space-y-4">
+            <h2 className="text-lg font-semibold text-white">Appearance</h2>
+            <p className="text-sm text-slate-400">
               Choose how the app looks. Your preference is saved to this browser and applied automatically next time you visit.
             </p>
             <div className="grid gap-4 sm:grid-cols-2 max-w-lg">
               <button
                 onClick={() => setTheme('light')}
                 className={`flex items-center gap-3 rounded-2xl border-2 px-5 py-4 text-left transition-colors ${
-                  theme === 'light' ? 'border-primary-600 bg-primary-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                  theme === 'light' ? 'border-primary-600 bg-primary-900/20' : 'border-slate-700 bg-slate-800 hover:border-slate-600'
                 }`}
               >
                 <Sun className="h-5 w-5 text-amber-500 shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Light Mode</p>
-                  <p className="text-xs text-slate-500">Bright background, dark text</p>
+                  <p className="text-sm font-semibold text-white">Light Mode</p>
+                  <p className="text-xs text-slate-400">Bright background, dark text</p>
                 </div>
                 {theme === 'light' && <Check className="h-4 w-4 text-primary-600 ml-auto shrink-0" />}
               </button>
               <button
                 onClick={() => setTheme('dark')}
                 className={`flex items-center gap-3 rounded-2xl border-2 px-5 py-4 text-left transition-colors ${
-                  theme === 'dark' ? 'border-primary-600 bg-primary-50' : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                  theme === 'dark' ? 'border-primary-600 bg-primary-900/20' : 'border-slate-700 bg-slate-800 hover:border-slate-600'
                 }`}
               >
                 <Moon className="h-5 w-5 text-indigo-500 shrink-0" />
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">Dark Mode</p>
-                  <p className="text-xs text-slate-500">Dark background, light text</p>
+                  <p className="text-sm font-semibold text-white">Dark Mode</p>
+                  <p className="text-xs text-slate-400">Dark background, light text</p>
                 </div>
                 {theme === 'dark' && <Check className="h-4 w-4 text-primary-600 ml-auto shrink-0" />}
               </button>
@@ -157,10 +157,10 @@ export default function SettingsPage() {
         )}
 
         {tab === 'permissions' && (
-          <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-soft space-y-4">
+          <section className="rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-soft space-y-4">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="h-5 w-5 text-emerald-600" />
-              <h2 className="text-lg font-semibold text-slate-900">User Permissions & Role Management</h2>
+              <ShieldCheck className="h-5 w-5 text-emerald-500" />
+              <h2 className="text-lg font-semibold text-white">User Permissions & Role Management</h2>
             </div>
 
             {roleLoading ? (
@@ -168,7 +168,7 @@ export default function SettingsPage() {
                 <Loader2 className="h-4 w-4 animate-spin" /> Checking your access level...
               </div>
             ) : !isAdmin ? (
-              <div className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="flex items-start gap-3 rounded-xl border border-amber-700/40 bg-amber-900/20 px-4 py-3 text-sm text-amber-300">
                 <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
                 <p>Only administrators can view and manage user roles. Contact an admin if you need access changed.</p>
               </div>
@@ -178,8 +178,8 @@ export default function SettingsPage() {
                   <div
                     className={`rounded-xl px-4 py-3 text-sm ${
                       banner.type === 'success'
-                        ? 'border border-emerald-200 bg-emerald-50 text-emerald-800'
-                        : 'border border-red-200 bg-red-50 text-red-700'
+                        ? 'border border-emerald-700/40 bg-emerald-900/20 text-emerald-300'
+                        : 'border border-red-700/40 bg-red-900/20 text-red-300'
                     }`}
                   >
                     {banner.text}
@@ -191,20 +191,20 @@ export default function SettingsPage() {
                     <Loader2 className="h-4 w-4 animate-spin" /> Loading users...
                   </div>
                 ) : usersError ? (
-                  <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{usersError}</div>
+                  <div className="rounded-xl border border-red-700/40 bg-red-900/20 px-4 py-3 text-sm text-red-300">{usersError}</div>
                 ) : (
                   <div className="space-y-3">
                     {users.map((user) => (
                       <div
                         key={user.id}
-                        className="flex flex-col gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+                        className="flex flex-col gap-3 rounded-xl border border-slate-800 bg-slate-800/50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
                       >
                         <div>
-                          <p className="text-sm font-semibold text-slate-900">
+                          <p className="text-sm font-semibold text-white">
                             {user.firstName} {user.lastName}
                             {user.id === currentUserId && <span className="ml-2 text-xs text-slate-400">(you)</span>}
                           </p>
-                          <p className="text-xs text-slate-500">{user.email}</p>
+                          <p className="text-xs text-slate-400">{user.email}</p>
                         </div>
                         <div className="flex items-center gap-3">
                           {updatingId === user.id && <Loader2 className="h-4 w-4 animate-spin text-slate-400" />}
@@ -212,7 +212,7 @@ export default function SettingsPage() {
                             value={user.role}
                             disabled={updatingId === user.id}
                             onChange={(event) => handleRoleChange(user, event.target.value as 'admin' | 'member')}
-                            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-medium text-slate-200 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-60"
                           >
                             <option value="member">Member</option>
                             <option value="admin">Admin</option>
