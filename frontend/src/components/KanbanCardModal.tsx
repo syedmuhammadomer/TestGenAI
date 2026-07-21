@@ -479,6 +479,7 @@ export default function KanbanCardModal({
                         {cmt.attachments.map((att) => (
                           att.type === 'image' && att.dataUrl ? (
                             <a key={att.id} href={att.dataUrl} target="_blank" rel="noreferrer">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={att.dataUrl} alt={att.name} className="w-24 h-24 object-cover rounded-xl border border-slate-700 hover:opacity-80 transition" />
                             </a>
                           ) : (
@@ -502,6 +503,7 @@ export default function KanbanCardModal({
                   {commentAttachments.map((att) => (
                     <div key={att.id} className="relative group">
                       {att.type === 'image' && att.dataUrl ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img src={att.dataUrl} alt={att.name} className="w-16 h-16 object-cover rounded-xl border border-slate-700" />
                       ) : (
                         <div className="flex items-center gap-1.5 text-xs text-slate-400 bg-slate-800 rounded-lg px-2 py-1.5 border border-slate-700">

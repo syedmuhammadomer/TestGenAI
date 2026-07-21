@@ -5,7 +5,6 @@ import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Layout from '@/components/Layout'
 import Projects from '@/components/Projects'
-import Button from '@/components/Button'
 import { config, handleApiError } from '@/utils/config'
 
 type ProjectSummary = {
