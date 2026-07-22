@@ -178,17 +178,29 @@ function ProgressBar({ progress }: { progress: number }) {
   )
 }
 
-type Feature = { id: number; title: string; description: string }
-type UserStory = { id: number; actor: string; goal: string; benefit: string; acceptanceCriteria: string }
-type TestCase = { id: number; testCaseId: string; title: string; preconditions: string; steps: string; expectedResult: string }
+type Feature = {
+  id?: number; title: string; description: string
+  userImpact?: string; technicalDetails?: string
+  priority?: 'High' | 'Medium' | 'Low'; module?: string
+}
+type UserStory = {
+  id?: number; actor: string; goal: string; benefit: string; acceptanceCriteria: string
+  priority?: 'High' | 'Medium' | 'Low'; storyPoints?: number; dependencies?: string[]
+}
+type TestCase = {
+  id?: number; testCaseId: string; title: string
+  type?: 'positive' | 'negative' | 'edge'
+  preconditions: string; steps: string; expectedResult: string
+  severity?: 'Critical' | 'High' | 'Medium' | 'Low'; category?: string
+}
 type RtmEntry = { id: number; requirementId: string; description: string; linkedUserStories: string[]; linkedTestCases: string[] }
 type Analytics = {
-  totalFeatures: number
-  totalUserStories: number
-  totalTestCases: number
-  totalRequirements: number
-  coverageSummary: string
-  riskAreas: string | string[]
+  totalFeatures: number; totalUserStories: number; totalTestCases: number; totalRequirements: number
+  coverageSummary: string; riskAreas: string | string[]
+  coveragePercentage?: number; qualityScore?: number
+  recommendations?: string[]
+  testTypeBreakdown?: { positive: number; negative: number; edge: number }
+  priorityBreakdown?: { high: number; medium: number; low: number }
 }
 
 type Project = {
@@ -203,7 +215,12 @@ type Project = {
   userStories?: UserStory[]
   testCases?: TestCase[]
   rtm?: RtmEntry[]
-  aiResponse?: { analytics?: Analytics }
+  aiResponse?: {
+    analytics?: Analytics
+    features?: Feature[]
+    userStories?: UserStory[]
+    testCases?: TestCase[]
+  }
 }
 
 type Tab = 'overview' | 'features' | 'user_stories' | 'test_cases' | 'rtm' | 'analytics'
@@ -255,6 +272,7 @@ export default function ProjectDetailPage() {
   const [project, setProject] = useState<Project | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('overview')
+  const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null)
 
   useEffect(() => {
     if (!id) return
@@ -295,9 +313,9 @@ export default function ProjectDetailPage() {
 
   if (!project) return null
 
-  const features = project.features ?? []
-  const userStories = project.userStories ?? []
-  const testCases = project.testCases ?? []
+  const features = (project.aiResponse?.features as Feature[] | undefined) ?? project.features ?? []
+  const userStories = (project.aiResponse?.userStories as UserStory[] | undefined) ?? project.userStories ?? []
+  const testCases = (project.aiResponse?.testCases as TestCase[] | undefined) ?? project.testCases ?? []
   const rtm = project.rtm ?? []
   const analytics = project.aiResponse?.analytics
 
@@ -430,17 +448,52 @@ export default function ProjectDetailPage() {
         <div className="space-y-4">
           {features.length === 0 ? (
             <p className="text-slate-500 text-center py-12">No features extracted yet.</p>
-          ) : features.map((f, i) => (
-            <div key={f.id} className="bg-slate-950 border border-slate-800 rounded-xl p-5">
-              <div className="flex items-start gap-3">
-                <span className="shrink-0 w-7 h-7 rounded-full bg-primary-600/20 text-primary-300 text-xs font-bold flex items-center justify-center">{i + 1}</span>
-                <div>
-                  <h3 className="text-white font-semibold">{f.title}</h3>
-                  <p className="text-slate-400 text-sm mt-1">{f.description}</p>
+          ) : features.map((f, i) => {
+            const priorityStyle = f.priority === 'High'
+              ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
+              : f.priority === 'Medium'
+              ? 'bg-amber-900/30 text-amber-300 border-amber-800/60'
+              : f.priority === 'Low'
+              ? 'bg-emerald-900/30 text-emerald-300 border-emerald-800/60'
+              : 'bg-slate-800/60 text-slate-400 border-slate-700'
+            return (
+              <div key={i} className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
+                {/* Header */}
+                <div className="flex items-start gap-3 px-5 py-4 border-b border-slate-800/60">
+                  <span className="shrink-0 w-7 h-7 rounded-full bg-primary-600/20 text-primary-300 text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <h3 className="text-white font-semibold">{f.title}</h3>
+                      {f.priority && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${priorityStyle}`}>{f.priority}</span>
+                      )}
+                      {f.module && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary-900/30 text-primary-300 border border-primary-800/50">{f.module}</span>
+                      )}
+                    </div>
+                    <p className="text-slate-300 text-sm leading-relaxed">{f.description}</p>
+                  </div>
                 </div>
+                {/* Detail grid */}
+                {(f.userImpact || f.technicalDetails) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-slate-800/60">
+                    {f.userImpact && (
+                      <div className="px-5 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">User Impact</p>
+                        <p className="text-slate-300 text-sm leading-relaxed">{f.userImpact}</p>
+                      </div>
+                    )}
+                    {f.technicalDetails && (
+                      <div className="px-5 py-4">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Technical Details</p>
+                        <p className="text-slate-300 text-sm leading-relaxed">{f.technicalDetails}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
       )}
 
@@ -448,59 +501,192 @@ export default function ProjectDetailPage() {
         <div className="space-y-4">
           {userStories.length === 0 ? (
             <p className="text-slate-500 text-center py-12">No user stories generated yet.</p>
-          ) : userStories.map((s, i) => (
-            <div key={s.id} className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-3">
-              <div className="flex items-center gap-2">
-                <span className="shrink-0 w-7 h-7 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center">{i + 1}</span>
-                <p className="text-white font-medium">
-                  As a <strong className="text-primary-300">{s.actor}</strong>, I want to <strong>{s.goal}</strong>
-                  {s.benefit ? <span className="text-slate-400"> so that {s.benefit}</span> : null}
-                </p>
-              </div>
-              {s.acceptanceCriteria && (
-                <div className="ml-9 pl-3 border-l border-slate-700">
-                  <p className="text-xs text-slate-400 font-semibold uppercase tracking-wider mb-1">Acceptance Criteria</p>
-                  <p className="text-sm text-slate-300 whitespace-pre-line">{s.acceptanceCriteria}</p>
+          ) : userStories.map((s, i) => {
+            const priorityStyle = s.priority === 'High'
+              ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
+              : s.priority === 'Medium'
+              ? 'bg-amber-900/30 text-amber-300 border-amber-800/60'
+              : s.priority === 'Low'
+              ? 'bg-emerald-900/30 text-emerald-300 border-emerald-800/60'
+              : 'bg-slate-800/60 text-slate-400 border-slate-700'
+            return (
+              <div key={i} className="bg-slate-950 border border-slate-800 rounded-xl overflow-hidden">
+                {/* Story header */}
+                <div className="px-5 py-4 border-b border-slate-800/60">
+                  <div className="flex items-start gap-3">
+                    <span className="shrink-0 w-7 h-7 rounded-full bg-accent/20 text-accent text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                    <div className="flex-1">
+                      <div className="flex flex-wrap items-center gap-2 mb-2">
+                        {s.priority && (
+                          <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${priorityStyle}`}>{s.priority}</span>
+                        )}
+                        {s.storyPoints != null && (
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700 font-mono">{s.storyPoints} pts</span>
+                        )}
+                      </div>
+                      <p className="text-white font-medium leading-relaxed">
+                        As a <span className="text-primary-300 font-semibold">{s.actor}</span>, I want to <span className="text-white font-semibold">{s.goal}</span>
+                        {s.benefit ? <span className="text-slate-400"> so that {s.benefit}</span> : null}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
-          ))}
+                {/* Acceptance criteria */}
+                {s.acceptanceCriteria && (
+                  <div className="px-5 py-4 border-b border-slate-800/60">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-3">Acceptance Criteria</p>
+                    <div className="text-sm text-slate-300 leading-relaxed whitespace-pre-line">{s.acceptanceCriteria}</div>
+                  </div>
+                )}
+                {/* Dependencies */}
+                {s.dependencies && s.dependencies.length > 0 && (
+                  <div className="px-5 py-3">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Dependencies</p>
+                    <div className="flex flex-wrap gap-2">
+                      {s.dependencies.map((dep, di) => (
+                        <span key={di} className="text-xs px-2 py-0.5 rounded bg-slate-800 text-slate-300 border border-slate-700">{dep}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </div>
       )}
 
       {tab === 'test_cases' && (
-        <div className="space-y-4">
-          {testCases.length === 0 ? (
-            <p className="text-slate-500 text-center py-12">No test cases generated yet.</p>
-          ) : testCases.map((tc) => (
-            <div key={tc.id} className="bg-slate-950 border border-slate-800 rounded-xl p-5 space-y-3">
-              <div className="flex items-center gap-3">
-                <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-700/30 text-emerald-300 text-xs font-mono font-bold">{tc.testCaseId}</span>
-                <h3 className="text-white font-semibold">{tc.title}</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-                {tc.preconditions && (
+        <>
+          {/* Test case detail modal */}
+          {selectedTestCase && (
+            <div
+              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+              onClick={() => setSelectedTestCase(null)}
+            >
+              <div
+                className="w-full max-w-2xl bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {/* Modal header */}
+                <div className="flex items-start justify-between px-6 py-5 border-b border-slate-800">
                   <div>
-                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Preconditions</p>
-                    <p className="text-slate-300">{tc.preconditions}</p>
+                    <div className="flex flex-wrap items-center gap-2 mb-1">
+                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/50">{selectedTestCase.testCaseId}</span>
+                      {selectedTestCase.type && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                          selectedTestCase.type === 'positive' ? 'bg-emerald-900/30 text-emerald-300 border-emerald-800/60'
+                          : selectedTestCase.type === 'negative' ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
+                          : 'bg-amber-900/30 text-amber-300 border-amber-800/60'
+                        }`}>{selectedTestCase.type.charAt(0).toUpperCase() + selectedTestCase.type.slice(1)}</span>
+                      )}
+                      {selectedTestCase.severity && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                          selectedTestCase.severity === 'Critical' ? 'bg-rose-900/40 text-rose-300 border-rose-800'
+                          : selectedTestCase.severity === 'High' ? 'bg-orange-900/30 text-orange-300 border-orange-800/60'
+                          : selectedTestCase.severity === 'Medium' ? 'bg-amber-900/30 text-amber-300 border-amber-800/60'
+                          : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                        }`}>{selectedTestCase.severity}</span>
+                      )}
+                      {selectedTestCase.category && (
+                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary-900/30 text-primary-300 border border-primary-800/50">{selectedTestCase.category}</span>
+                      )}
+                    </div>
+                    <h2 className="text-white font-bold text-lg">{selectedTestCase.title}</h2>
                   </div>
-                )}
-                {tc.steps && (
-                  <div>
-                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Steps</p>
-                    <p className="text-slate-300 whitespace-pre-line">{tc.steps}</p>
-                  </div>
-                )}
-                {tc.expectedResult && (
-                  <div>
-                    <p className="text-xs text-slate-500 font-semibold uppercase tracking-wider mb-1">Expected Result</p>
-                    <p className="text-slate-300">{tc.expectedResult}</p>
-                  </div>
-                )}
+                  <button onClick={() => setSelectedTestCase(null)} className="text-slate-400 hover:text-white ml-4 text-xl leading-none">×</button>
+                </div>
+                {/* Modal body */}
+                <div className="divide-y divide-slate-800">
+                  {selectedTestCase.preconditions && (
+                    <div className="px-6 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Preconditions</p>
+                      <p className="text-slate-300 text-sm leading-relaxed">{selectedTestCase.preconditions}</p>
+                    </div>
+                  )}
+                  {selectedTestCase.steps && (
+                    <div className="px-6 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Test Steps</p>
+                      <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{selectedTestCase.steps}</div>
+                    </div>
+                  )}
+                  {selectedTestCase.expectedResult && (
+                    <div className="px-6 py-4">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Expected Result</p>
+                      <p className="text-slate-300 text-sm leading-relaxed">{selectedTestCase.expectedResult}</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+
+          <div className="space-y-3">
+            {testCases.length === 0 ? (
+              <p className="text-slate-500 text-center py-12">No test cases generated yet.</p>
+            ) : (
+              <>
+                {/* Type summary bar */}
+                {testCases.some((tc) => tc.type) && (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {(['positive', 'negative', 'edge'] as const).map((t) => {
+                      const count = testCases.filter((tc) => tc.type === t).length
+                      if (count === 0) return null
+                      const style = t === 'positive' ? 'bg-emerald-900/20 text-emerald-300 border-emerald-800/50'
+                        : t === 'negative' ? 'bg-rose-900/20 text-rose-300 border-rose-800/50'
+                        : 'bg-amber-900/20 text-amber-300 border-amber-800/50'
+                      return (
+                        <span key={t} className={`text-xs font-medium px-3 py-1 rounded-full border ${style}`}>
+                          {t.charAt(0).toUpperCase() + t.slice(1)}: {count}
+                        </span>
+                      )
+                    })}
+                    <span className="text-xs font-medium px-3 py-1 rounded-full border bg-slate-800/60 text-slate-400 border-slate-700">
+                      Total: {testCases.length}
+                    </span>
+                  </div>
+                )}
+
+                {testCases.map((tc, i) => (
+                  <button
+                    key={i}
+                    onClick={() => setSelectedTestCase(tc)}
+                    className="w-full text-left bg-slate-950 border border-slate-800 rounded-xl px-5 py-4 hover:border-slate-600 hover:bg-slate-900/60 transition-all group"
+                  >
+                    <div className="flex items-start gap-3">
+                      <span className="shrink-0 font-mono text-xs font-bold px-2 py-1 rounded bg-emerald-900/30 text-emerald-300 border border-emerald-800/50 mt-0.5">{tc.testCaseId}</span>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 mb-1">
+                          <h3 className="text-white font-medium group-hover:text-primary-300 transition-colors">{tc.title}</h3>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {tc.type && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                              tc.type === 'positive' ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/40'
+                              : tc.type === 'negative' ? 'bg-rose-900/20 text-rose-400 border-rose-800/40'
+                              : 'bg-amber-900/20 text-amber-400 border-amber-800/40'
+                            }`}>{tc.type}</span>
+                          )}
+                          {tc.severity && (
+                            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                              tc.severity === 'Critical' ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
+                              : tc.severity === 'High' ? 'bg-orange-900/20 text-orange-400 border-orange-800/40'
+                              : tc.severity === 'Medium' ? 'bg-amber-900/20 text-amber-400 border-amber-800/40'
+                              : 'bg-slate-800/50 text-slate-400 border-slate-700'
+                            }`}>{tc.severity}</span>
+                          )}
+                          {tc.category && (
+                            <span className="text-xs px-2 py-0.5 rounded-full border bg-primary-900/20 text-primary-400 border-primary-800/40">{tc.category}</span>
+                          )}
+                        </div>
+                      </div>
+                      <span className="text-slate-600 group-hover:text-slate-400 transition-colors text-xs shrink-0 mt-1">View details →</span>
+                    </div>
+                  </button>
+                ))}
+              </>
+            )}
+          </div>
+        </>
       )}
 
       {tab === 'rtm' && (
@@ -548,39 +734,161 @@ export default function ProjectDetailPage() {
             <p className="text-slate-500 text-center py-12">Analytics will appear once the AI processing completes.</p>
           ) : (
             <>
+              {/* Counts */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 {[
-                  { label: 'Features', value: analytics.totalFeatures },
-                  { label: 'User Stories', value: analytics.totalUserStories },
-                  { label: 'Test Cases', value: analytics.totalTestCases },
-                  { label: 'Requirements', value: analytics.totalRequirements },
-                ].map(({ label, value }) => (
+                  { label: 'Features', value: analytics.totalFeatures, color: 'text-primary-300' },
+                  { label: 'User Stories', value: analytics.totalUserStories, color: 'text-accent' },
+                  { label: 'Test Cases', value: analytics.totalTestCases, color: 'text-emerald-300' },
+                  { label: 'Requirements', value: analytics.totalRequirements, color: 'text-amber-300' },
+                ].map(({ label, value, color }) => (
                   <div key={label} className="bg-slate-950 border border-slate-800 rounded-xl p-5 text-center">
-                    <p className="text-3xl font-bold text-white">{value ?? 0}</p>
+                    <p className={`text-3xl font-bold ${color}`}>{value ?? 0}</p>
                     <p className="text-xs text-slate-400 mt-1">{label}</p>
                   </div>
                 ))}
               </div>
-              {analytics.coverageSummary && (
-                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5">
-                  <h3 className="text-white font-semibold mb-2">Coverage Summary</h3>
-                  <p className="text-slate-300 text-sm">{analytics.coverageSummary}</p>
+
+              {/* Quality score + coverage % */}
+              {(analytics.qualityScore != null || analytics.coveragePercentage != null) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {analytics.qualityScore != null && (
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Quality Score</p>
+                        <span className={`text-lg font-bold ${analytics.qualityScore >= 80 ? 'text-emerald-300' : analytics.qualityScore >= 60 ? 'text-amber-300' : 'text-rose-300'}`}>
+                          {analytics.qualityScore}%
+                        </span>
+                      </div>
+                      <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${analytics.qualityScore >= 80 ? 'bg-emerald-500' : analytics.qualityScore >= 60 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                          style={{ width: `${analytics.qualityScore}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">
+                        {analytics.qualityScore >= 80 ? 'Excellent — high-quality output' : analytics.qualityScore >= 60 ? 'Good — some areas need attention' : 'Needs improvement'}
+                      </p>
+                    </div>
+                  )}
+                  {analytics.coveragePercentage != null && (
+                    <div className="bg-slate-950 border border-slate-800 rounded-xl p-5">
+                      <div className="flex items-center justify-between mb-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Test Coverage</p>
+                        <span className={`text-lg font-bold ${analytics.coveragePercentage >= 80 ? 'text-emerald-300' : analytics.coveragePercentage >= 60 ? 'text-amber-300' : 'text-rose-300'}`}>
+                          {analytics.coveragePercentage}%
+                        </span>
+                      </div>
+                      <div className="h-2.5 bg-slate-800 rounded-full overflow-hidden">
+                        <div
+                          className={`h-full rounded-full transition-all ${analytics.coveragePercentage >= 80 ? 'bg-emerald-500' : analytics.coveragePercentage >= 60 ? 'bg-amber-500' : 'bg-rose-500'}`}
+                          style={{ width: `${analytics.coveragePercentage}%` }}
+                        />
+                      </div>
+                      <p className="text-xs text-slate-500 mt-2">Requirements covered by test cases</p>
+                    </div>
+                  )}
                 </div>
               )}
-              {analytics.riskAreas && (
+
+              {/* Test type breakdown */}
+              {analytics.testTypeBreakdown && (
                 <div className="bg-slate-950 border border-slate-800 rounded-xl p-5">
-                  <h3 className="text-white font-semibold mb-2">Risk Areas</h3>
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">Test Type Breakdown</p>
+                  <div className="space-y-3">
+                    {([
+                      { key: 'positive', label: 'Positive', color: 'bg-emerald-500', textColor: 'text-emerald-300' },
+                      { key: 'negative', label: 'Negative', color: 'bg-rose-500', textColor: 'text-rose-300' },
+                      { key: 'edge', label: 'Edge Cases', color: 'bg-amber-500', textColor: 'text-amber-300' },
+                    ] as const).map(({ key, label, color, textColor }) => {
+                      const count = analytics.testTypeBreakdown![key] ?? 0
+                      const total = (analytics.testTypeBreakdown!.positive ?? 0) + (analytics.testTypeBreakdown!.negative ?? 0) + (analytics.testTypeBreakdown!.edge ?? 0)
+                      const pct = total > 0 ? Math.round((count / total) * 100) : 0
+                      return (
+                        <div key={key}>
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="text-slate-300">{label}</span>
+                            <span className={`font-semibold ${textColor}`}>{count} <span className="text-slate-500 font-normal text-xs">({pct}%)</span></span>
+                          </div>
+                          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Priority breakdown */}
+              {analytics.priorityBreakdown && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-4">Priority Distribution</p>
+                  <div className="space-y-3">
+                    {([
+                      { key: 'high', label: 'High Priority', color: 'bg-rose-500', textColor: 'text-rose-300' },
+                      { key: 'medium', label: 'Medium Priority', color: 'bg-amber-500', textColor: 'text-amber-300' },
+                      { key: 'low', label: 'Low Priority', color: 'bg-emerald-500', textColor: 'text-emerald-300' },
+                    ] as const).map(({ key, label, color, textColor }) => {
+                      const count = analytics.priorityBreakdown![key] ?? 0
+                      const total = (analytics.priorityBreakdown!.high ?? 0) + (analytics.priorityBreakdown!.medium ?? 0) + (analytics.priorityBreakdown!.low ?? 0)
+                      const pct = total > 0 ? Math.round((count / total) * 100) : 0
+                      return (
+                        <div key={key}>
+                          <div className="flex items-center justify-between text-sm mb-1">
+                            <span className="text-slate-300">{label}</span>
+                            <span className={`font-semibold ${textColor}`}>{count} <span className="text-slate-500 font-normal text-xs">({pct}%)</span></span>
+                          </div>
+                          <div className="h-2 bg-slate-800 rounded-full overflow-hidden">
+                            <div className={`h-full ${color} rounded-full transition-all`} style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Coverage summary */}
+              {analytics.coverageSummary && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5">
+                  <h3 className="text-white font-semibold mb-3">Coverage Summary</h3>
+                  <p className="text-slate-300 text-sm leading-relaxed">{analytics.coverageSummary}</p>
+                </div>
+              )}
+
+              {/* Risk areas */}
+              {analytics.riskAreas && (
+                <div className="bg-slate-950 border border-rose-900/40 rounded-xl p-5">
+                  <h3 className="text-rose-300 font-semibold mb-3 flex items-center gap-2">
+                    <span className="w-2 h-2 rounded-full bg-rose-400" /> Risk Areas
+                  </h3>
                   {Array.isArray(analytics.riskAreas) ? (
-                    <ul className="space-y-1">
+                    <ul className="space-y-2">
                       {analytics.riskAreas.map((r, i) => (
                         <li key={i} className="text-slate-300 text-sm flex items-start gap-2">
-                          <span className="text-rose-400 mt-0.5">•</span> {r}
+                          <span className="text-rose-400 mt-0.5 shrink-0">•</span> {r}
                         </li>
                       ))}
                     </ul>
                   ) : (
-                    <p className="text-slate-300 text-sm">{analytics.riskAreas}</p>
+                    <p className="text-slate-300 text-sm leading-relaxed">{analytics.riskAreas}</p>
                   )}
+                </div>
+              )}
+
+              {/* Recommendations */}
+              {analytics.recommendations && analytics.recommendations.length > 0 && (
+                <div className="bg-slate-950 border border-slate-800 rounded-xl p-5">
+                  <h3 className="text-white font-semibold mb-3">Recommendations</h3>
+                  <ul className="space-y-3">
+                    {analytics.recommendations.map((rec, i) => (
+                      <li key={i} className="flex items-start gap-3">
+                        <span className="shrink-0 w-6 h-6 rounded-full bg-primary-600/20 text-primary-300 text-xs font-bold flex items-center justify-center mt-0.5">{i + 1}</span>
+                        <p className="text-slate-300 text-sm leading-relaxed">{rec}</p>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
             </>
