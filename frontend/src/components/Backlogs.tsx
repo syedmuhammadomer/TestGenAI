@@ -1,12 +1,13 @@
 import * as React from 'react'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import {
-  Search, X, Plus, Pencil, Trash2, Check, AlertCircle, LayoutGrid,
+  Search, X, Plus, Pencil, Trash2, Check, LayoutGrid,
   ChevronRight, SlidersHorizontal, ArrowUpDown, Eye, MoreHorizontal,
 } from 'lucide-react'
 import Button from './Button'
 import { ProjectRecord, useProjectContext } from '@/context/ProjectContext'
-import { userStoryService, UserStoryInput } from '@/services/userStoryService'
+import { userStoryService } from '@/services/userStoryService'
+import { toast } from 'sonner'
 import { teamService, TeamMemberRecord } from '@/services/teamService'
 import KanbanCardModal, {
   KanbanCardData,
@@ -167,11 +168,13 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
     if (!name) return
     persistSections(sections.map((s) => (s.id === id ? { ...s, name } : s)))
     setEditingSectionId(null)
+    toast.success('Section renamed')
   }
 
   function handleDeleteSection(id: string) {
     persistSections(sections.filter((s) => s.id !== id))
     setDeletingSectionId(null)
+    toast.success('Section deleted')
     if (selectedProjectId != null) {
       const remaining  = sections.filter((s) => s.id !== id)
       const fallbackId = remaining[0]?.id ?? DEFAULT_SECTIONS[0].id
@@ -252,38 +255,44 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
   const [selectedCard, setSelectedCard] = useState<KanbanCardData | null>(null)
   const [searchTerm, setSearchTerm]     = useState('')
 
-  /* create form */
-  const [showCreateForm, setShowCreateForm]   = useState(false)
-  const [newStorySection, setNewStorySection] = useState<string>('')
-  const [form, setForm] = useState<UserStoryInput>({ actor: '', goal: '', benefit: '', acceptanceCriteria: '' })
-  const [submitting, setSubmitting]           = useState(false)
-  const [formError, setFormError]             = useState<string | null>(null)
+  /* inline card creation */
+  const [inlineCreateSectionId, setInlineCreateSectionId] = useState<string | null>(null)
+  const [inlineTitle, setInlineTitle]                     = useState('')
+  const [inlineSubmitting, setInlineSubmitting]           = useState(false)
+  const inlineRef = useRef<HTMLInputElement>(null)
 
-  function startCreate(sectionId?: string) {
-    setForm({ actor: '', goal: '', benefit: '', acceptanceCriteria: '' })
-    setFormError(null)
-    setNewStorySection(sectionId ?? sections[0]?.id ?? '')
-    setShowCreateForm(true)
+  useEffect(() => {
+    if (inlineCreateSectionId) inlineRef.current?.focus()
+  }, [inlineCreateSectionId])
+
+  function startInlineCreate(sectionId: string) {
+    setInlineTitle('')
+    setInlineCreateSectionId(sectionId)
   }
 
-  async function handleCreateStory() {
-    if (!selectedProjectId) { setFormError('Select a project first.'); return }
-    if (!form.goal?.trim()) { setFormError('Goal is required.'); return }
-    setSubmitting(true); setFormError(null)
+  const submitInlineCreate = useCallback(async () => {
+    const title = inlineTitle.trim()
+    if (!title || !selectedProjectId || inlineSubmitting) return
+    setInlineSubmitting(true)
     try {
-      const created = await userStoryService.create(selectedProjectId, form)
+      const created = await userStoryService.create(selectedProjectId, {
+        actor: '', goal: title, benefit: '', acceptanceCriteria: '',
+      })
       await refreshSelectedProject()
       const storyId = created?.id ?? Date.now()
       const cardId  = `${selectedProjectId}-${storyId}`
       saveCardMeta(selectedProjectId, cardId, {
-        sectionId: newStorySection || sections[0]?.id || DEFAULT_SECTIONS[0].id,
+        sectionId: inlineCreateSectionId ?? sections[0]?.id ?? DEFAULT_SECTIONS[0].id,
         priority: 'Medium', labelIds: [], comments: [],
       })
-      setShowCreateForm(false)
-    } catch (err) {
-      setFormError(err instanceof Error ? err.message : 'Unable to create story.')
-    } finally { setSubmitting(false) }
-  }
+      setInlineTitle('')
+      setInlineCreateSectionId(null)
+      toast.success('Card created')
+    } catch {
+      toast.error('Failed to create card')
+    }
+    finally { setInlineSubmitting(false) }
+  }, [inlineTitle, selectedProjectId, inlineSubmitting, inlineCreateSectionId, sections, refreshSelectedProject])
 
   /* drag-and-drop */
   function handleDragStart(e: React.DragEvent, cardId: string) {
@@ -335,7 +344,7 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
             <Button
               size="sm"
               className="whitespace-nowrap shrink-0"
-              onClick={() => startCreate()}
+              onClick={() => startInlineCreate(sections[0]?.id ?? DEFAULT_SECTIONS[0].id)}
               disabled={!selectedProjectId}
             >
               <Plus className="w-3.5 h-3.5 mr-1.5" /> New Issue
@@ -405,83 +414,6 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
         </div>
       )}
 
-      {/* Create story form */}
-      {showCreateForm && (
-        <section className="rounded-2xl border border-slate-700/60 bg-slate-900 p-6 shadow-xl space-y-4 shrink-0">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-base font-bold text-white">Create a card</h2>
-              <p className="text-xs text-slate-500 mt-0.5">Add a new story to the board.</p>
-            </div>
-            <button onClick={() => setShowCreateForm(false)} className="text-slate-500 hover:text-slate-300 p-1.5 rounded-lg hover:bg-slate-800 transition">
-              <X className="w-5 h-5" />
-            </button>
-          </div>
-
-          {formError && (
-            <div className="flex items-center gap-2 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-              <AlertCircle className="w-4 h-4 shrink-0" /> {formError}
-            </div>
-          )}
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="block space-y-1.5">
-              <span className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Section</span>
-              <select
-                value={newStorySection}
-                onChange={(e) => setNewStorySection(e.target.value)}
-                className="w-full rounded-xl bg-slate-800 border border-slate-700 px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/30"
-              >
-                {sections.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Actor</span>
-              <input
-                value={form.actor || ''}
-                onChange={(e) => setForm((f) => ({ ...f, actor: e.target.value }))}
-                placeholder="e.g. Registered member"
-                className="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/30"
-              />
-            </label>
-          </div>
-
-          <label className="block space-y-1.5">
-            <span className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Goal *</span>
-            <input
-              value={form.goal || ''}
-              onChange={(e) => setForm((f) => ({ ...f, goal: e.target.value }))}
-              placeholder="e.g. search the catalog by title"
-              className="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/30"
-            />
-          </label>
-
-          <label className="block space-y-1.5">
-            <span className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Benefit</span>
-            <input
-              value={form.benefit || ''}
-              onChange={(e) => setForm((f) => ({ ...f, benefit: e.target.value }))}
-              placeholder="so that I can find books quickly"
-              className="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/30"
-            />
-          </label>
-
-          <label className="block space-y-1.5">
-            <span className="text-[10px] uppercase tracking-widest text-slate-500 font-semibold">Acceptance Criteria</span>
-            <textarea
-              value={form.acceptanceCriteria || ''}
-              onChange={(e) => setForm((f) => ({ ...f, acceptanceCriteria: e.target.value }))}
-              rows={3}
-              className="w-full rounded-xl bg-slate-800 border border-slate-700 px-4 py-2 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-primary-500 focus:ring-1 focus:ring-primary-500/30 resize-none"
-            />
-          </label>
-
-          <div className="flex justify-end gap-3 pt-2 border-t border-slate-800">
-            <Button variant="outline" onClick={() => setShowCreateForm(false)}>Cancel</Button>
-            <Button onClick={handleCreateStory} isLoading={submitting}>{submitting ? 'Creating…' : 'Create card'}</Button>
-          </div>
-        </section>
-      )}
 
       {/* Delete section dialog */}
       {deletingSectionId && (
@@ -569,7 +501,7 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
                         <>
                           {/* + Add card directly in header */}
                           <button
-                            onClick={() => startCreate(section.id)}
+                            onClick={() => startInlineCreate(section.id)}
                             disabled={!selectedProjectId}
                             title="Add card"
                             className="p-1 rounded-md text-slate-600 hover:text-white hover:bg-slate-800 transition disabled:opacity-40"
@@ -715,14 +647,43 @@ export default function Backlogs({ selectedProject }: BacklogsProps) {
 
                   {/* Add card — bottom of column */}
                   {canEdit && (
-                    <button
-                      onClick={() => startCreate(section.id)}
-                      disabled={!selectedProjectId}
-                      className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-slate-600 hover:text-primary-400 hover:bg-slate-800 border border-transparent hover:border-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      <Plus className="w-3.5 h-3.5 shrink-0" />
-                      <span>Add issue</span>
-                    </button>
+                    inlineCreateSectionId === section.id ? (
+                      <div className="mt-1 rounded-xl border border-primary-500/60 bg-slate-800 overflow-hidden">
+                        <input
+                          ref={inlineRef}
+                          value={inlineTitle}
+                          onChange={(e) => setInlineTitle(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') { e.preventDefault(); submitInlineCreate() }
+                            if (e.key === 'Escape') { setInlineCreateSectionId(null); setInlineTitle('') }
+                          }}
+                          onBlur={() => {
+                            if (!inlineTitle.trim()) { setInlineCreateSectionId(null); setInlineTitle('') }
+                          }}
+                          placeholder="Issue title…"
+                          disabled={inlineSubmitting}
+                          className="w-full px-3 py-2.5 bg-transparent text-sm text-white placeholder-slate-500 focus:outline-none disabled:opacity-50"
+                        />
+                        <div className="flex items-center justify-between px-3 py-2 border-t border-slate-700 bg-slate-900/50">
+                          <span className="text-[10px] text-slate-500">Enter to save · Esc to cancel</span>
+                          {inlineSubmitting && (
+                            <svg className="animate-spin w-3.5 h-3.5 text-primary-400" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                            </svg>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startInlineCreate(section.id)}
+                        disabled={!selectedProjectId}
+                        className="w-full flex items-center gap-2 px-2 py-2 rounded-lg text-xs text-slate-600 hover:text-primary-400 hover:bg-slate-800 border border-transparent hover:border-slate-700 transition disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <Plus className="w-3.5 h-3.5 shrink-0" />
+                        <span>Add issue</span>
+                      </button>
+                    )
                   )}
                 </div>
               </div>

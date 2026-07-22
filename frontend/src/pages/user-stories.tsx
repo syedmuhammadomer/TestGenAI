@@ -6,6 +6,7 @@ import Layout from '@/components/Layout'
 import Button from '@/components/Button'
 import { useProjectContext, UserStoryItem } from '@/context/ProjectContext'
 import { userStoryService, UserStoryInput } from '@/services/userStoryService'
+import { toast } from 'sonner'
 import {
   Sparkles, User, Pencil, Trash2, Plus, X, Loader2, Search,
   ChevronDown, ArrowRight, CheckCircle2, Flag, UserCircle,
@@ -159,15 +160,18 @@ export default function UserStoriesPage() {
       if (editingId != null) {
         await userStoryService.update(selectedProjectId, editingId, input)
         patchMeta(editingId, { priority: form.priority, status: form.status, assignee: form.assignee })
+        toast.success('User story updated')
       } else {
         const created = await userStoryService.create(selectedProjectId, input)
-        // save meta for newly created story after refresh
         if (created?.id) patchMeta(created.id, { priority: form.priority, status: form.status, assignee: form.assignee })
+        toast.success('User story created')
       }
       await refreshSelectedProject()
       cancelForm()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save user story')
+      const msg = err instanceof Error ? err.message : 'Failed to save user story'
+      setError(msg)
+      toast.error(msg)
     } finally { setSaving(false) }
   }
 
@@ -177,8 +181,11 @@ export default function UserStoriesPage() {
     try {
       await userStoryService.remove(selectedProjectId, story.id)
       await refreshSelectedProject()
+      toast.success('User story deleted')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to delete user story')
+      const msg = err instanceof Error ? err.message : 'Failed to delete user story'
+      setError(msg)
+      toast.error(msg)
     } finally { setDeletingId(null) }
   }
 

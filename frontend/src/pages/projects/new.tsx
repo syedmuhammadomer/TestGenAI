@@ -6,6 +6,7 @@ import Layout from '@/components/Layout'
 import Button from '@/components/Button'
 import { Upload } from 'lucide-react'
 import axios from 'axios'
+import { toast } from 'sonner'
 import { config } from '@/utils/config'
 
 const getErrorMessage = (error: unknown) => {
@@ -62,6 +63,7 @@ export default function NewProjectPage() {
       })
       setProgress(70)
       setMessage('Project queued for AI review. You will be notified once ready.')
+      toast.success('Project queued successfully! Redirecting…')
       setProjectName('')
       setSrsFile(null)
       setTimeout(() => {
@@ -69,7 +71,9 @@ export default function NewProjectPage() {
       }, 800)
     } catch (err) {
       console.error('Failed to create project', err)
-      setError(getErrorMessage(err))
+      const errMsg = getErrorMessage(err)
+      setError(errMsg)
+      toast.error(errMsg)
     } finally {
       setIsSubmitting(false)
       setProgress(100)

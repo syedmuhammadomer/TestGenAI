@@ -3,6 +3,7 @@
 import axios from 'axios'
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
+import { toast } from 'sonner'
 import Layout from '@/components/Layout'
 import Projects from '@/components/Projects'
 import { config, handleApiError } from '@/utils/config'
@@ -24,7 +25,6 @@ export default function ProjectsPage() {
   const [serverState, setServerState] = useState<'ready' | 'down' | 'idle'>('idle')
   const [deleteModalProject, setDeleteModalProject] = useState<ProjectSummary | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
-  const [actionMessage, setActionMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null)
 
   useEffect(() => {
     const token = localStorage.getItem('authToken')
@@ -69,21 +69,9 @@ export default function ProjectsPage() {
       <div className="mb-6 text-sm text-slate-500">
         Server status: {serverState === 'ready' ? 'Healthy' : serverState === 'down' ? 'Unavailable' : 'Checking...'}
       </div>
-      {actionMessage && (
-        <div
-          className={`mb-4 text-sm ${
-            actionMessage.type === 'success' ? 'text-emerald-600' : 'text-rose-600'
-          }`}
-        >
-          {actionMessage.text}
-        </div>
-      )}
       <Projects
         projects={projects}
-        onDeleteRequest={(project) => {
-          setActionMessage(null)
-          setDeleteModalProject(project)
-        }}
+        onDeleteRequest={(project) => setDeleteModalProject(project)}
       />
       {deleteModalProject && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
@@ -118,10 +106,10 @@ export default function ProjectsPage() {
                     try {
                       await axios.delete(`${config.endpoints.projects}/${deleteModalProject.id}`)
                       setProjects((prev) => prev.filter(project => project.id !== deleteModalProject.id))
-                      setActionMessage({ text: 'Project deleted successfully.', type: 'success' })
                       setDeleteModalProject(null)
+                      toast.success('Project deleted successfully.')
                     } catch (error) {
-                      setActionMessage({ text: handleApiError(error), type: 'error' })
+                      toast.error(handleApiError(error))
                     } finally {
                       setIsDeleting(false)
                     }

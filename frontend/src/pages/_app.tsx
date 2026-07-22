@@ -1,5 +1,6 @@
 import type { AppProps } from 'next/app'
 import axios from 'axios'
+import { Toaster } from 'sonner'
 import { ProjectProvider } from '@/context/ProjectContext'
 import { ThemeProvider } from '@/context/ThemeContext'
 import '../styles/globals.css'
@@ -34,6 +35,17 @@ export default function MyApp({ Component, pageProps }: AppProps) {
     <ThemeProvider>
       <ProjectProvider>
         <Component {...pageProps} />
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              background: '#18181b',
+              border: '1px solid #3f3f46',
+              color: '#fafafa',
+            },
+          }}
+          richColors
+        />
       </ProjectProvider>
     </ThemeProvider>
   )

@@ -6,6 +6,7 @@ import { useTheme } from '@/context/ThemeContext'
 import { settingsService, ManagedUser } from '@/services/settingsService'
 import { storage } from '@/utils/config'
 import { Moon, Sun, ShieldCheck, Loader2, AlertTriangle, Check } from 'lucide-react'
+import { toast } from 'sonner'
 
 type Tab = 'theme' | 'permissions'
 
@@ -20,7 +21,6 @@ export default function SettingsPage() {
   const [usersLoading, setUsersLoading] = useState(false)
   const [usersError, setUsersError] = useState<string | null>(null)
   const [updatingId, setUpdatingId] = useState<number | null>(null)
-  const [banner, setBanner] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -73,13 +73,12 @@ export default function SettingsPage() {
   const handleRoleChange = async (user: ManagedUser, role: 'admin' | 'member') => {
     if (role === user.role) return
     setUpdatingId(user.id)
-    setBanner(null)
     try {
       const updated = await settingsService.updateUserRole(user.id, role)
       setUsers((prev) => prev.map((u) => (u.id === updated.id ? updated : u)))
-      setBanner({ type: 'success', text: `${updated.firstName} ${updated.lastName} is now ${updated.role}.` })
+      toast.success(`${updated.firstName} ${updated.lastName} is now ${updated.role}`)
     } catch (error) {
-      setBanner({ type: 'error', text: error instanceof Error ? error.message : 'Failed to update role' })
+      toast.error(error instanceof Error ? error.message : 'Failed to update role')
     } finally {
       setUpdatingId(null)
     }
@@ -174,18 +173,6 @@ export default function SettingsPage() {
               </div>
             ) : (
               <>
-                {banner && (
-                  <div
-                    className={`rounded-xl px-4 py-3 text-sm ${
-                      banner.type === 'success'
-                        ? 'border border-emerald-700/40 bg-emerald-900/20 text-emerald-300'
-                        : 'border border-red-700/40 bg-red-900/20 text-red-300'
-                    }`}
-                  >
-                    {banner.text}
-                  </div>
-                )}
-
                 {usersLoading ? (
                   <div className="flex items-center gap-2 text-sm text-slate-500 py-6">
                     <Loader2 className="h-4 w-4 animate-spin" /> Loading users...

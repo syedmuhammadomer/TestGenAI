@@ -10,6 +10,7 @@ import {
 import { MemberRole, ModuleKey } from '@/types'
 import { ALL_MODULES, DEFAULT_MODULES_BY_ROLE, MODULE_LABELS, ROLE_LABELS } from '@/utils/access'
 import { teamService, TeamMemberRecord, TeamActivityRecord } from '@/services/teamService'
+import { toast } from 'sonner'
 import { useProjectContext } from '@/context/ProjectContext'
 
 // ── Role config ────────────────────────────────────────────────────────────────
@@ -355,19 +356,25 @@ export default function TeamPage() {
     setMembers((prev) => [...prev, member])
     setStats((prev) => ({ ...prev, totalMembers: prev.totalMembers + 1 }))
     setShowInvite(false)
+    toast.success(`Invitation sent to ${member.fullName}`)
   }
 
   const handleSaved = (updated: TeamMemberRecord) => {
     setMembers((prev) => prev.map((m) => m.id === updated.id ? updated : m))
     setEditMember(null)
+    toast.success(`${updated.fullName} updated successfully`)
   }
 
   const handleDelete = async (id: number) => {
     setDeletingId(id)
     try {
       await teamService.deleteMember(id)
+      const removed = members.find((m) => m.id === id)
       setMembers((prev) => prev.filter((m) => m.id !== id))
       setStats((prev) => ({ ...prev, totalMembers: Math.max(0, prev.totalMembers - 1) }))
+      toast.success(`${removed?.fullName ?? 'Member'} removed from workspace`)
+    } catch {
+      toast.error('Failed to remove member')
     } finally { setDeletingId(null) }
   }
 
