@@ -530,13 +530,52 @@ function ChatWindow({ conv, onSend, onBack }: { conv: Conversation; onSend: (tex
   )
 }
 
+// ── Persistence helpers ───────────────────────────────────────────────────────
+const CONV_KEY = 'chat_conversations_v1'
+const ACTIVE_KEY = 'chat_active_id_v1'
+
+function loadConversations(): Conversation[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(CONV_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+function saveConversations(convs: Conversation[]) {
+  try { localStorage.setItem(CONV_KEY, JSON.stringify(convs)) } catch { /* noop */ }
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 type ModalType = 'group' | 'project' | 'dm' | null
 type FilterTab = 'all' | 'groups' | 'direct'
 
+const GENERAL_ID = 'c-general'
+
+function ensureGeneral(convs: Conversation[], members: ChatMember[]): Conversation[] {
+  if (convs.some((c) => c.id === GENERAL_ID)) {
+    // update members list but keep existing messages
+    return convs.map((c) =>
+      c.id === GENERAL_ID ? { ...c, members } : c
+    )
+  }
+  const general: Conversation = {
+    id: GENERAL_ID, type: 'group', name: 'General',
+    members, unread: 0, lastMessage: 'Welcome to the team chat!', lastTime: 'now',
+    messages: [{
+      id: 'sys-0', senderId: 'system', senderName: 'System',
+      text: 'Welcome to General — your team hub for all updates.', time: 'now', date: 'Today', isOwn: false,
+    }],
+  }
+  return [general, ...convs]
+}
+
 export default function ChatPage() {
-  const [conversations, setConversations] = useState<Conversation[]>([])
-  const [activeId, setActiveId] = useState<string | null>(null)
+  const [conversations, setConversations] = useState<Conversation[]>(() => loadConversations())
+  const [activeId, setActiveId] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null
+    return localStorage.getItem(ACTIVE_KEY) ?? null
+  })
   const [modal, setModal] = useState<ModalType>(null)
   const [filter, setFilter] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
@@ -546,33 +585,39 @@ export default function ChatPage() {
   const [teamMembers, setTeamMembers] = useState<ChatMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(true)
 
+  // Persist conversations whenever they change
+  useEffect(() => {
+    saveConversations(conversations)
+  }, [conversations])
+
+  // Persist active conversation id
+  useEffect(() => {
+    if (activeId) localStorage.setItem(ACTIVE_KEY, activeId)
+  }, [activeId])
+
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true)
     try {
       const data = await teamService.getDashboard()
-      setTeamMembers(data.members.map(toMember))
+      const members = data.members.map(toMember)
+      setTeamMembers(members)
 
-      // Seed initial conversations from real members if no conversations yet
-      if (conversations.length === 0 && data.members.length > 0) {
-        const members = data.members.map(toMember)
-        const initial: Conversation[] = []
-
-        // Create a general group chat from all members
-        if (members.length >= 2) {
-          initial.push({
-            id: 'c-general', type: 'group', name: 'General',
-            members, unread: 0, lastMessage: 'Welcome to the team chat!', lastTime: 'now',
-            messages: [{
-              id: 'sys-0', senderId: 'system', senderName: 'System',
-              text: 'Welcome to General — your team hub for all updates.', time: 'now', date: 'Today', isOwn: false,
-            }],
-          })
-        }
-        setConversations(initial)
-        if (initial.length > 0) setActiveId(initial[0].id)
-      }
+      // Always ensure General channel exists (with or without team members)
+      setConversations((prev) => {
+        const updated = ensureGeneral(prev, members)
+        saveConversations(updated)
+        return updated
+      })
+      setActiveId((prev) => prev ?? GENERAL_ID)
     } catch {
-      // silently keep state — team API may not be reachable
+      // Still ensure General channel even without team data
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === GENERAL_ID)) return prev
+        const updated = ensureGeneral(prev, [])
+        saveConversations(updated)
+        return updated
+      })
+      setActiveId((prev) => prev ?? GENERAL_ID)
     } finally {
       setLoadingMembers(false)
     }
