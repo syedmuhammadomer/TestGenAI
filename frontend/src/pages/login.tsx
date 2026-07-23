@@ -47,17 +47,17 @@ export default function Login() {
 
           {/* Success Message */}
           {submitted && (
-            <div className="mb-6 p-4 bg-emerald-50 border border-emerald-200 rounded-lg flex items-center gap-2">
-              <CheckCircle size={20} className="text-emerald-500" />
-              <span className="text-emerald-700 text-sm">Login successful!</span>
+            <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/30 rounded-lg flex items-center gap-2">
+              <CheckCircle size={20} className="text-emerald-400 shrink-0" />
+              <span className="text-emerald-300 text-sm">Login successful!</span>
             </div>
           )}
 
           {/* Auth Error Message */}
           {authError && (
-            <div className="mb-6 p-4 bg-rose-50 border border-rose-200 rounded-lg flex items-center gap-2">
-              <AlertCircle size={20} className="text-rose-500" />
-              <span className="text-rose-700 text-sm">{authError}</span>
+            <div className="mb-6 p-4 bg-rose-500/10 border border-rose-500/30 rounded-lg flex items-center gap-2">
+              <AlertCircle size={20} className="text-rose-400 shrink-0" />
+              <span className="text-rose-300 text-sm">{authError}</span>
             </div>
           )}
 
@@ -65,11 +65,11 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email Field */}
             <div>
-              <label htmlFor="email" className="block text-sm font-semibold text-slate-700 mb-2">
+              <label htmlFor="email" className="block text-sm font-semibold text-slate-400 mb-2">
                 Email Address
               </label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">
                   <Mail size={18} />
                 </div>
                 <input
@@ -82,19 +82,19 @@ export default function Login() {
                   disabled={loading}
                   className={`w-full pl-10 pr-4 py-3 rounded-lg border transition outline-none ${
                     touched.email && errors.email
-                      ? 'border-rose-400 bg-rose-50 text-slate-900 placeholder-slate-400'
-                      : 'border-slate-200 bg-white text-slate-900 placeholder-slate-400 hover:border-slate-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-100'
+                      ? 'border-rose-500/60 bg-rose-500/10 text-white placeholder-slate-500'
+                      : 'border-slate-700 bg-slate-800 text-white placeholder-slate-500 hover:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                   } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 />
               </div>
               {touched.email && errors.email && (
-                <div className="mt-2 flex items-center gap-1 text-rose-600 text-sm">
+                <div className="mt-2 flex items-center gap-1 text-rose-400 text-sm">
                   <AlertCircle size={16} />
                   {errors.email}
                 </div>
               )}
               {touched.email && !errors.email && email && (
-                <div className="mt-2 flex items-center gap-1 text-emerald-600 text-sm">
+                <div className="mt-2 flex items-center gap-1 text-emerald-400 text-sm">
                   <CheckCircle size={16} />
                   Email is valid
                 </div>
@@ -103,11 +103,11 @@ export default function Login() {
 
             {/* Password Field */}
             <div>
-              <label htmlFor="password" className="block text-sm font-semibold text-slate-700 mb-2">
+              <label htmlFor="password" className="block text-sm font-semibold text-slate-400 mb-2">
                 Password
               </label>
               <div className="relative">
-                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400">
+                <div className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-500">
                   <Lock size={18} />
                 </div>
                 <input
@@ -120,19 +120,19 @@ export default function Login() {
                   disabled={loading}
                   className={`w-full pl-10 pr-4 py-3 rounded-lg border transition outline-none ${
                     touched.password && errors.password
-                      ? 'border-rose-400 bg-rose-50 text-slate-900 placeholder-slate-400'
-                      : 'border-slate-200 bg-white text-slate-900 placeholder-slate-400 hover:border-slate-300 focus:border-primary-500 focus:ring-2 focus:ring-primary-100'
+                      ? 'border-rose-500/60 bg-rose-500/10 text-white placeholder-slate-500'
+                      : 'border-slate-700 bg-slate-800 text-white placeholder-slate-500 hover:border-slate-600 focus:border-primary-500 focus:ring-2 focus:ring-primary-500/20'
                   } ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
                 />
               </div>
               {touched.password && errors.password && (
-                <div className="mt-2 flex items-center gap-1 text-rose-600 text-sm">
+                <div className="mt-2 flex items-center gap-1 text-rose-400 text-sm">
                   <AlertCircle size={16} />
                   {errors.password}
                 </div>
               )}
               {touched.password && !errors.password && password && (
-                <div className="mt-2 flex items-center gap-1 text-emerald-600 text-sm">
+                <div className="mt-2 flex items-center gap-1 text-emerald-400 text-sm">
                   <CheckCircle size={16} />
                   Password is valid
                 </div>
