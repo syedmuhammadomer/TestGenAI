@@ -24,7 +24,7 @@ async function bootstrap() {
   const port = Number(process.env.PORT || 3002);
 
   // Global DTO validation
-  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true }));
+  app.useGlobalPipes(new ValidationPipe({ whitelist: true, forbidNonWhitelisted: true, transform: true }));
 
   // Swagger
   const config = new DocumentBuilder()

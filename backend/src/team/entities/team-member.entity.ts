@@ -26,6 +26,7 @@ export const ALL_MODULES = [
   'documents',
   'analytics',
   'team',
+  'calendar',
   'settings',
   'billing',
 ] as const;
@@ -34,12 +35,12 @@ export type ModuleKey = (typeof ALL_MODULES)[number];
 
 export const DEFAULT_MODULES_BY_ROLE: Record<MemberRole, ModuleKey[]> = {
   [MemberRole.CompanyAdmin]: [...ALL_MODULES],
-  [MemberRole.PM]: ['dashboard', 'projects', 'backlogs', 'user_stories', 'test_manager', 'rtm', 'documents', 'analytics', 'team', 'settings'],
-  [MemberRole.QAEngineer]: ['dashboard', 'projects', 'backlogs', 'test_manager', 'rtm', 'analytics', 'settings'],
-  [MemberRole.Developer]: ['dashboard', 'projects', 'backlogs', 'user_stories', 'settings'],
-  [MemberRole.Designer]: ['dashboard', 'projects', 'documents', 'settings'],
-  [MemberRole.BA]: ['dashboard', 'projects', 'user_stories', 'rtm', 'documents', 'analytics', 'settings'],
-  [MemberRole.Viewer]: ['dashboard', 'projects', 'settings'],
+  [MemberRole.PM]: ['dashboard', 'projects', 'backlogs', 'user_stories', 'test_manager', 'rtm', 'documents', 'analytics', 'team', 'calendar', 'settings'],
+  [MemberRole.QAEngineer]: ['dashboard', 'projects', 'backlogs', 'test_manager', 'rtm', 'analytics', 'calendar', 'settings'],
+  [MemberRole.Developer]: ['dashboard', 'projects', 'backlogs', 'user_stories', 'calendar', 'settings'],
+  [MemberRole.Designer]: ['dashboard', 'projects', 'documents', 'calendar', 'settings'],
+  [MemberRole.BA]: ['dashboard', 'projects', 'user_stories', 'rtm', 'documents', 'analytics', 'calendar', 'settings'],
+  [MemberRole.Viewer]: ['dashboard', 'projects', 'calendar', 'settings'],
 };
 
 @Entity('team_members')

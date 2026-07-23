@@ -150,7 +150,7 @@ export class EmailService {
     fullName: string;
     role: string;
     project?: string;
-    team: string;
+    team?: string;
   }): Promise<void> {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
       console.warn(`[EMAIL] Skipping invite email to ${params.email} — SMTP_USER/SMTP_PASS not configured`);
@@ -168,7 +168,7 @@ export class EmailService {
           <p>Hello ${params.fullName},</p>
           <p>You have been invited to join the workspace as <strong>${params.role}</strong>.</p>
           <ul>
-            <li><strong>Team:</strong> ${params.team}</li>
+            <li><strong>Team:</strong> ${params.team || 'General'}</li>
             <li><strong>Assigned Project:</strong> ${params.project || 'Will be assigned after login'}</li>
           </ul>
           <div style="margin: 24px 0;">
@@ -179,7 +179,7 @@ export class EmailService {
           <p>Use this invitation email to register or log in with the same address. Your access will match the assigned role and project.</p>
         </div>
       `,
-      text: `You have been invited to TestGen AI as ${params.role}. Team: ${params.team}. Assigned Project: ${params.project || 'Will be assigned after login'}. Accept invitation: ${inviteUrl}`,
+      text: `You have been invited to TestGen AI as ${params.role}. Team: ${params.team || 'General'}. Assigned Project: ${params.project || 'Will be assigned after login'}. Accept invitation: ${inviteUrl}`,
     };
 
     try {
