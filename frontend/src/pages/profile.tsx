@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from 'react'
 import Layout from '@/components/Layout'
 import { useTheme } from '@/context/ThemeContext'
-import { storage } from '@/utils/config'
 import { KeyRound, Loader2, Eye, EyeOff, Camera } from 'lucide-react'
 import { toast } from 'sonner'
 
