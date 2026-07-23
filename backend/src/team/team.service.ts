@@ -5,6 +5,7 @@ import { EmailService } from '../auth/email.service';
 import { InviteTeamMemberDto } from './dto/invite-team-member.dto';
 import { UpdateTeamMemberDto } from './dto/update-team-member.dto';
 import { TeamActivity } from './entities/team-activity.entity';
+import { TeamGroup } from './entities/team-group.entity';
 import { DEFAULT_MODULES_BY_ROLE, MemberRole, ModuleKey, TeamMember, TeamMemberStatus } from './entities/team-member.entity';
 
 @Injectable()
@@ -14,8 +15,21 @@ export class TeamService {
     private readonly teamMemberRepository: Repository<TeamMember>,
     @InjectRepository(TeamActivity)
     private readonly teamActivityRepository: Repository<TeamActivity>,
+    @InjectRepository(TeamGroup)
+    private readonly teamGroupRepository: Repository<TeamGroup>,
     private readonly emailService: EmailService,
   ) {}
+
+  async createTeamGroup(userId: number, name: string, description?: string) {
+    const existing = await this.teamGroupRepository.findOne({ where: { userId, name } });
+    if (existing) throw new BadRequestException('A team with this name already exists.');
+    const group = this.teamGroupRepository.create({ userId, name: name.trim(), description: description?.trim() });
+    return this.teamGroupRepository.save(group);
+  }
+
+  async getTeamGroups(userId: number) {
+    return this.teamGroupRepository.find({ where: { userId }, order: { createdAt: 'ASC' } });
+  }
 
   async getDashboard(userId: number) {
     const members = await this.teamMemberRepository.find({

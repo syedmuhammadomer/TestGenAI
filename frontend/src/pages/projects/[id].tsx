@@ -720,7 +720,6 @@ export default function ProjectDetailPage() {
               </>
             )}
           </div>
-        </div>
       )}
 
       {tab === 'rtm' && (

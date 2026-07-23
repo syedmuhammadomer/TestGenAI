@@ -5,11 +5,11 @@ import Layout from '@/components/Layout'
 import Button from '@/components/Button'
 import {
   Shield, Activity, X, Mail, User, Briefcase, ChevronDown, Check,
-  Trash2, UserPlus, Pencil, CheckCircle2, XCircle, Loader2,
+  Trash2, UserPlus, Pencil, CheckCircle2, XCircle, Loader2, Users,
 } from 'lucide-react'
 import { MemberRole, ModuleKey } from '@/types'
 import { ALL_MODULES, DEFAULT_MODULES_BY_ROLE, MODULE_LABELS, ROLE_LABELS } from '@/utils/access'
-import { teamService, TeamMemberRecord, TeamActivityRecord } from '@/services/teamService'
+import { teamService, TeamMemberRecord, TeamActivityRecord, TeamGroup } from '@/services/teamService'
 import { toast } from 'sonner'
 import { useProjectContext } from '@/context/ProjectContext'
 
@@ -58,16 +58,77 @@ const statusDot = (status: string) =>
 const initials = (name: string) =>
   name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
 
+// ── Create Team Modal ─────────────────────────────────────────────────────────
+interface CreateTeamModalProps {
+  onClose: () => void
+  onCreated: (team: TeamGroup) => void
+}
+
+function CreateTeamModal({ onClose, onCreated }: CreateTeamModalProps) {
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  const handleCreate = async () => {
+    if (!name.trim()) { setError('Team name is required'); return }
+    setError(''); setLoading(true)
+    try {
+      const team = await teamService.createTeamGroup({ name: name.trim(), description: description.trim() || undefined })
+      onCreated(team)
+    } catch (err) {
+      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
+      setError(msg ?? 'Failed to create team')
+    } finally { setLoading(false) }
+  }
+
+  return (
+    <ModalShell title="Create Team" icon={<Users className="w-4 h-4 text-primary-400" />} onClose={onClose}>
+      {error && <p className="text-xs text-rose-400 bg-rose-900/30 border border-rose-700/40 rounded-lg px-4 py-2">{error}</p>}
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Team Name</label>
+        <div className="relative">
+          <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. QA Team, Frontend Squad"
+            className={inputCls}
+            autoFocus
+          />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Description <span className="text-slate-600 normal-case font-normal">(optional)</span></label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="What does this team work on?"
+          rows={3}
+          className="w-full px-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none"
+        />
+      </div>
+      <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
+        <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
+        <Button onClick={handleCreate} isLoading={loading}>Create Team</Button>
+      </div>
+    </ModalShell>
+  )
+}
+
 // ── Invite Modal ──────────────────────────────────────────────────────────────
 interface InviteModalProps {
   onClose: () => void
   onInvited: (member: TeamMemberRecord) => void
+  teams?: TeamGroup[]
 }
 
-function InviteModal({ onClose, onInvited }: InviteModalProps) {
+function InviteModal({ onClose, onInvited, teams = [] }: InviteModalProps) {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [role, setRole] = useState<MemberRole>('qa_engineer')
+  const [team, setTeam] = useState('')
   const [project, setProject] = useState('')
   const [modules, setModules] = useState<ModuleKey[]>(DEFAULT_MODULES_BY_ROLE['qa_engineer'])
   const { projects } = useProjectContext()
@@ -89,7 +150,7 @@ function InviteModal({ onClose, onInvited }: InviteModalProps) {
     if (!email.trim()) { setError('Email is required'); return }
     setError(''); setLoading(true)
     try {
-      const member = await teamService.inviteMember({ fullName: fullName.trim(), email: email.trim(), role, project: project.trim() || undefined, modules, sendCopy })
+      const member = await teamService.inviteMember({ fullName: fullName.trim(), email: email.trim(), role, team: team.trim() || undefined, project: project.trim() || undefined, modules, sendCopy })
       onInvited(member)
     } catch (err) {
       const msg = err instanceof Error ? err.message : (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -117,6 +178,19 @@ function InviteModal({ onClose, onInvited }: InviteModalProps) {
         </div>
         <p className="text-xs text-slate-500">{ROLE_DESCRIPTIONS[role]}</p>
       </div>
+      {teams.length > 0 && (
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Team <span className="text-slate-600 normal-case font-normal">(optional)</span></label>
+          <div className="relative">
+            <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+            <select value={team} onChange={(e) => setTeam(e.target.value)} className={`${inputCls} appearance-none`}>
+              <option value="">— No team —</option>
+              {teams.map((t) => <option key={t.id} value={t.name}>{t.name}</option>)}
+            </select>
+            <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
+          </div>
+        </div>
+      )}
       <div className="space-y-1.5">
         <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">Assigned Project (optional)</label>
         <div className="relative">
@@ -334,23 +408,35 @@ export default function TeamPage() {
   const [members, setMembers] = useState<TeamMemberRecord[]>([])
   const [activity, setActivity] = useState<TeamActivityRecord[]>([])
   const [stats, setStats] = useState({ totalMembers: 0, activeNow: 0, avgTestCases: 0 })
+  const [teams, setTeams] = useState<TeamGroup[]>([])
   const [loading, setLoading] = useState(true)
   const [showInvite, setShowInvite] = useState(false)
+  const [showCreateTeam, setShowCreateTeam] = useState(false)
   const [editMember, setEditMember] = useState<TeamMemberRecord | null>(null)
   const [deletingId, setDeletingId] = useState<number | null>(null)
   const [activeTab, setActiveTab] = useState<'members' | 'matrix'>('members')
 
   const load = useCallback(async () => {
     try {
-      const data = await teamService.getDashboard()
+      const [data, groups] = await Promise.all([
+        teamService.getDashboard(),
+        teamService.getTeamGroups(),
+      ])
       setMembers(data.members)
       setActivity(data.activity)
       setStats(data.stats)
+      setTeams(groups)
     } catch { /* silently keep state */ }
     finally { setLoading(false) }
   }, [])
 
   useEffect(() => { void load() }, [load])
+
+  const handleTeamCreated = (team: TeamGroup) => {
+    setTeams((prev) => [...prev, team])
+    setShowCreateTeam(false)
+    toast.success(`Team "${team.name}" created`)
+  }
 
   const handleInvited = (member: TeamMemberRecord) => {
     setMembers((prev) => [...prev, member])
@@ -388,9 +474,14 @@ export default function TeamPage() {
             <h1 className="text-2xl font-bold text-white">Team Management</h1>
             <p className="text-sm text-slate-400 mt-0.5">Invite members, assign roles, and control module access.</p>
           </div>
-          <Button size="md" onClick={() => setShowInvite(true)}>
-            <UserPlus className="w-4 h-4 mr-2" /> Invite Member
-          </Button>
+          <div className="flex items-center gap-3">
+            <Button size="md" variant="outline" onClick={() => setShowCreateTeam(true)}>
+              <Users className="w-4 h-4 mr-2" /> Create Team
+            </Button>
+            <Button size="md" onClick={() => setShowInvite(true)}>
+              <UserPlus className="w-4 h-4 mr-2" /> Invite Member
+            </Button>
+          </div>
         </header>
 
         {/* Stats */}
@@ -418,6 +509,45 @@ export default function TeamPage() {
         </div>
 
         {activeTab === 'matrix' && <RbacMatrix />}
+
+        {/* Teams panel */}
+        {activeTab === 'members' && teams.length > 0 && (
+          <div className="rounded-2xl border border-slate-800 bg-slate-950 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Users className="w-4 h-4 text-primary-400" />
+                <h2 className="text-base font-semibold text-white">Teams</h2>
+                <span className="text-xs text-slate-500 ml-1">({teams.length})</span>
+              </div>
+              <button
+                onClick={() => setShowCreateTeam(true)}
+                className="text-xs text-primary-400 hover:text-primary-300 transition"
+              >
+                + New Team
+              </button>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {teams.map((team) => {
+                const memberCount = members.filter((m) => m.team === team.name).length
+                return (
+                  <div key={team.id} className="rounded-xl border border-slate-800 bg-slate-900 px-4 py-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold text-white truncate">{team.name}</p>
+                        {team.description && (
+                          <p className="text-xs text-slate-400 mt-0.5 line-clamp-2">{team.description}</p>
+                        )}
+                      </div>
+                      <span className="shrink-0 text-xs px-2 py-0.5 rounded-full bg-primary-900/30 text-primary-300 border border-primary-800/50">
+                        {memberCount} {memberCount === 1 ? 'member' : 'members'}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
 
         {activeTab === 'members' && (
           <section className="grid gap-6 lg:grid-cols-[2fr,1fr]">
@@ -534,7 +664,8 @@ export default function TeamPage() {
         )}
       </div>
 
-      {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvited={handleInvited} />}
+      {showCreateTeam && <CreateTeamModal onClose={() => setShowCreateTeam(false)} onCreated={handleTeamCreated} />}
+      {showInvite && <InviteModal onClose={() => setShowInvite(false)} onInvited={handleInvited} teams={teams} />}
       {editMember && <EditMemberModal member={editMember} onClose={() => setEditMember(null)} onSaved={handleSaved} />}
     </Layout>
   )

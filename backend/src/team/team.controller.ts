@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, ParseIntPipe, Patch, Post, Req, UseGuards, IsString } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedRequest, JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { InviteTeamMemberDto } from './dto/invite-team-member.dto';
@@ -15,6 +15,18 @@ export class TeamController {
   @ApiOperation({ summary: 'Get team management dashboard data' })
   async getDashboard(@Req() req: AuthenticatedRequest) {
     return this.teamService.getDashboard(req.user!.id);
+  }
+
+  @Get('groups')
+  @ApiOperation({ summary: 'List team groups' })
+  async getTeamGroups(@Req() req: AuthenticatedRequest) {
+    return this.teamService.getTeamGroups(req.user!.id);
+  }
+
+  @Post('groups')
+  @ApiOperation({ summary: 'Create a team group' })
+  async createTeamGroup(@Req() req: AuthenticatedRequest, @Body() body: { name: string; description?: string }) {
+    return this.teamService.createTeamGroup(req.user!.id, body.name, body.description);
   }
 
   @Post('invite')

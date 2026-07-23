@@ -52,7 +52,28 @@ const authHeader = () => {
   return token ? { Authorization: `Bearer ${token}` } : {}
 }
 
+export type TeamGroup = {
+  id: number
+  name: string
+  description?: string
+  createdAt: string
+}
+
 export const teamService = {
+  async getTeamGroups(): Promise<TeamGroup[]> {
+    const { data } = await axios.get<TeamGroup[]>(`${config.apiBaseUrl}/api/team/groups`, {
+      headers: authHeader(),
+    })
+    return data
+  },
+
+  async createTeamGroup(payload: { name: string; description?: string }): Promise<TeamGroup> {
+    const { data } = await axios.post<TeamGroup>(`${config.apiBaseUrl}/api/team/groups`, payload, {
+      headers: authHeader(),
+    })
+    return data
+  },
+
   async getDashboard(): Promise<TeamDashboardResponse> {
     const { data } = await axios.get<TeamDashboardResponse>(`${config.apiBaseUrl}/api/team`, {
       headers: authHeader(),
