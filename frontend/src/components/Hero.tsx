@@ -20,12 +20,12 @@ export default function Hero() {
       />
       <div className="container mx-auto relative">
         <div className="flex flex-col items-center text-center mb-12">
-          <div className="inline-block mb-6 px-4 py-1.5 bg-primary-50 border border-primary-100 rounded-full">
-            <span className="text-primary-700 text-sm font-semibold">● AI-POWERED QA</span>
+          <div className="inline-block mb-6 px-4 py-1.5 bg-primary-900/30 border border-primary-700/40 rounded-full">
+            <span className="text-primary-300 text-sm font-semibold">● AI-POWERED QA</span>
           </div>
 
           <motion.h1
-            className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight text-slate-900"
+            className="text-5xl md:text-6xl font-extrabold mb-6 leading-tight tracking-tight text-white"
             variants={container}
             initial="hidden"
             whileInView="show"
@@ -36,7 +36,7 @@ export default function Hero() {
             <motion.span variants={child} className="gradient-text inline-block">Test Cases in Seconds</motion.span>
           </motion.h1>
 
-          <p className="text-slate-500 max-w-2xl mb-8 text-lg">
+          <p className="text-slate-300 max-w-2xl mb-8 text-lg">
             Turn requirements, user stories, and API specs into production-ready test scenarios, edge cases, and regression checklists automatically.
           </p>
 
@@ -85,15 +85,15 @@ export default function Hero() {
 
               {/* Right Side - Output */}
               <div>
-                <div className="text-primary-600 text-xs font-semibold mb-4">GENERATED OUTPUT</div>
-                <div className="text-slate-600 text-sm">
+                <div className="text-primary-400 text-xs font-semibold mb-4">GENERATED OUTPUT</div>
+                <div className="text-slate-300 text-sm">
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-5 h-5 rounded-full border-2 border-emerald-500 flex items-center justify-center">
-                      <span className="text-emerald-500 text-xs">✓</span>
+                      <span className="text-emerald-400 text-xs">✓</span>
                     </div>
-                    <span className="font-semibold text-slate-900">TC_001: Valid Login</span>
+                    <span className="font-semibold text-white">TC_001: Valid Login</span>
                   </div>
-                  <div className="text-slate-500 text-xs ml-7 mb-4">
+                  <div className="text-slate-400 text-xs ml-7 mb-4">
                     Verify user can login with valid credentials and redirect to dashboard.
                   </div>
 
@@ -103,24 +103,24 @@ export default function Hero() {
                     </div>
                     <span className="font-semibold text-white">TC_002: Invalid Password</span>
                   </div>
-                  <div className="text-slate-500 text-xs ml-7 mb-4">
+                  <div className="text-slate-400 text-xs ml-7 mb-4">
                     Verify error message &quot;Invalid credentials&quot; appears on wrong password.
                   </div>
 
                   <div className="flex items-center gap-2 mb-4">
                     <div className="w-5 h-5 rounded-full border-2 border-blue-500 flex items-center justify-center">
-                      <span className="text-blue-500 text-xs">📋</span>
+                      <span className="text-blue-400 text-xs">📋</span>
                     </div>
                     <span className="font-semibold text-white">TC_003: SQL Injection Attempt</span>
                   </div>
-                  <div className="text-slate-500 text-xs ml-7 mb-4">
+                  <div className="text-slate-400 text-xs ml-7 mb-4">
                     Verify input fields sanitize special characters and prevent injection.
                   </div>
 
-                  <div className="text-primary-600 text-xs mt-6 font-medium">+ View 12 more generated cases</div>
+                  <div className="text-primary-400 text-xs mt-6 font-medium">+ View 12 more generated cases</div>
                 </div>
 
-                <div className="text-slate-400 text-xs mt-6 text-right">Processing complete (0.4s)</div>
+                <div className="text-slate-500 text-xs mt-6 text-right">Processing complete (0.4s)</div>
               </div>
             </div>
           </div>
