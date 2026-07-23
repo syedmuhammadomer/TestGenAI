@@ -228,9 +228,10 @@ export default function Layout({ children }: LayoutProps) {
             const Icon = item.icon
             const current = router.pathname === item.href
             return (
-              <a
+              <Link
                 key={item.name}
                 href={item.href}
+                onClick={() => setSidebarOpen(false)}
                 className={`
                   group flex items-center px-3 py-2.5 text-sm font-medium rounded-xl
                   transition-all duration-200 ease-out
@@ -260,7 +261,7 @@ export default function Layout({ children }: LayoutProps) {
                 {current && (
                   <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-400" />
                 )}
-              </a>
+              </Link>
             )
           })}
         </nav>
