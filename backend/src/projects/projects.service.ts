@@ -173,6 +173,25 @@ export class ProjectsService implements OnModuleInit {
     return project;
   }
 
+  async reprocessProject(projectId: number, userId: number) {
+    const project = await this.projectRepository.findOne({ where: { id: projectId, userId } });
+    if (!project) {
+      throw new NotFoundException('Project not found');
+    }
+    if (project.status === ProjectStatus.Processing || project.status === ProjectStatus.Queued) {
+      throw new BadRequestException('Project is already being processed');
+    }
+    await this.projectRepository.update(projectId, {
+      status: ProjectStatus.Queued,
+      progress: 0,
+      failureReason: undefined,
+    });
+    void this.processProject(projectId).catch((error) => {
+      this.logger.error(`Reprocess of project ${projectId} crashed`, error?.stack || error);
+    });
+    return { message: 'Project re-queued for processing', projectId };
+  }
+
   async deleteProject(projectId: number, userId: number) {
     const project = await this.projectRepository.findOne({ where: { id: projectId, userId } });
     if (!project) {
@@ -439,9 +458,9 @@ Rules:
 
     const controller = new AbortController();
     const hardTimer = setTimeout(() => {
-      this.logger.warn(`AI hard-timeout after 300 s [model=${model}]`);
+      this.logger.warn(`AI hard-timeout after 600 s [model=${model}]`);
       controller.abort();
-    }, 300000);
+    }, 600000);
 
     try {
       const response = await this.getOpenAiClient().chat.completions.create(

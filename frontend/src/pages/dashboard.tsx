@@ -549,8 +549,29 @@ export default function Dashboard() {
                 />
               </div>
               {processingMessage && <p className="text-xs text-slate-400">{processingMessage}</p>}
-              {activeProject.failureReason && (
-                <p className="text-xs text-rose-400">Failure note: {activeProject.failureReason}</p>
+              {activeProject.status === 'failed' && (
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-1">
+                  {activeProject.failureReason && (
+                    <p className="text-xs text-rose-400 flex-1">Failure note: {activeProject.failureReason}</p>
+                  )}
+                  <button
+                    onClick={async () => {
+                      const token = localStorage.getItem('authToken')
+                      try {
+                        await axios.post(`${config.apiBaseUrl}/api/projects/${activeProject.id}/reprocess`, {}, {
+                          headers: { Authorization: `Bearer ${token}` },
+                        })
+                        await reloadProjects()
+                        startPollingProject(activeProject.id)
+                      } catch {
+                        setServerError('Could not retry — please try again')
+                      }
+                    }}
+                    className="shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-600/40 text-rose-200 text-xs font-medium transition-all"
+                  >
+                    <Upload className="w-3.5 h-3.5" /> Retry AI Processing
+                  </button>
+                </div>
               )}
             </div>
 

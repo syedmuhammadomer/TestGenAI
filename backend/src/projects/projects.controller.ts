@@ -146,6 +146,12 @@ export class ProjectsController {
     return { message: 'User story deleted successfully' };
   }
 
+  @Post(':id/reprocess')
+  @ApiOperation({ summary: 'Re-queue a failed or completed project for AI reprocessing' })
+  async reprocessProject(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
+    return this.projectsService.reprocessProject(id, req.user!.id);
+  }
+
   @Delete(':id')
   @ApiOperation({ summary: 'Delete a project and its AI output' })
   @ApiResponse({ status: 200, description: 'Project deleted successfully' })

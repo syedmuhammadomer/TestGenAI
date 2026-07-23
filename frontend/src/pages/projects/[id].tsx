@@ -586,9 +586,30 @@ export default function ProjectDetailPage() {
           <ProgressBar progress={project.progress} />
         )}
 
-        {project.status === 'failed' && project.failureReason && (
-          <div className="mt-4 p-4 rounded-xl bg-rose-900/20 border border-rose-800 text-rose-300 text-sm">
-            <strong>Processing failed:</strong> {project.failureReason}
+        {project.status === 'failed' && (
+          <div className="mt-4 p-4 rounded-xl bg-rose-900/20 border border-rose-800 text-rose-300 text-sm flex flex-col sm:flex-row sm:items-center gap-3">
+            <div className="flex-1">
+              <strong>Processing failed:</strong> {project.failureReason ?? 'Unknown error'}
+            </div>
+            <button
+              onClick={async () => {
+                const token = localStorage.getItem('authToken')
+                try {
+                  await axios.post(`${config.apiBaseUrl}/api/projects/${project.id}/reprocess`, {}, {
+                    headers: { Authorization: `Bearer ${token}` },
+                  })
+                  // Trigger a refresh
+                  const { data } = await axios.get<Project>(`${config.apiBaseUrl}/api/projects/${project.id}`)
+                  setProject(data)
+                } catch (e: unknown) {
+                  const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message ?? 'Retry failed'
+                  alert(msg)
+                }
+              }}
+              className="shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-xl bg-rose-600/20 hover:bg-rose-600/30 border border-rose-600/40 text-rose-200 text-sm font-medium transition-all"
+            >
+              <RefreshCw className="w-3.5 h-3.5" /> Retry Processing
+            </button>
           </div>
         )}
       </div>
