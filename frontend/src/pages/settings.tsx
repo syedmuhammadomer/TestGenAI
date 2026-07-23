@@ -52,8 +52,8 @@ export default function SettingsPage() {
         firstName: cachedUser.firstName ?? '',
         lastName: cachedUser.lastName ?? '',
         email: cachedUser.email ?? '',
-        companyName: (cachedUser as any).companyName ?? '',
-        jobTitle: (cachedUser as any).jobTitle ?? '',
+        companyName: (cachedUser as { companyName?: string }).companyName ?? '',
+        jobTitle: (cachedUser as { jobTitle?: string }).jobTitle ?? '',
       })
     }
     settingsService.getMe().then((me) => {

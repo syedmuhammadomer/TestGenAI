@@ -1,4 +1,5 @@
 import React, { ReactNode, useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/router'
 import {
   User, Settings, Zap,
@@ -322,7 +323,7 @@ export default function Layout({ children }: LayoutProps) {
               <div className="flex items-center gap-3">
                 {/* Company name + avatar */}
                 {user && (
-                  <a href="/settings" className="flex items-center gap-2.5 group">
+                  <Link href="/settings" className="flex items-center gap-2.5 group">
                     <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors ${
                       isDark ? 'border-zinc-800 bg-zinc-900 hover:border-zinc-700' : 'border-zinc-200 bg-zinc-50 hover:border-zinc-300'
                     }`}>
@@ -331,10 +332,10 @@ export default function Layout({ children }: LayoutProps) {
                         {[user.firstName?.[0], user.lastName?.[0]].filter(Boolean).join('').toUpperCase() || <User className="w-3.5 h-3.5" />}
                       </div>
                       <div className="hidden sm:block text-right min-w-0">
-                        {(user as any).companyName ? (
+                        {user.companyName ? (
                           <>
                             <p className={`text-xs font-semibold truncate max-w-[120px] ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-                              {(user as any).companyName}
+                              {user.companyName}
                             </p>
                             <p className={`text-[10px] truncate max-w-[120px] ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
                               {user.firstName} {user.lastName}
@@ -347,7 +348,7 @@ export default function Layout({ children }: LayoutProps) {
                         )}
                       </div>
                     </div>
-                  </a>
+                  </Link>
                 )}
 
                 {/* Theme toggle */}
