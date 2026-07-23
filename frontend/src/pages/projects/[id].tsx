@@ -25,9 +25,23 @@ const AI_STEPS = [
   { icon: Zap,        label: 'Finalising output',          color: 'text-yellow-400',  bg: 'bg-yellow-500/10'  },
 ]
 
+// Stage labels shown above progress bar
+const STAGE_INFO: { min: number; max: number; label: string; stage: string }[] = [
+  { min: 0,  max: 25, label: 'Reading & preparing document', stage: 'Stage 1 of 3' },
+  { min: 25, max: 50, label: 'Extracting features & user stories', stage: 'Stage 1 of 3' },
+  { min: 50, max: 75, label: 'Generating detailed test cases', stage: 'Stage 2 of 3' },
+  { min: 75, max: 90, label: 'Building RTM & analytics', stage: 'Stage 3 of 3' },
+  { min: 90, max: 100, label: 'Finalising & saving results', stage: 'Stage 3 of 3' },
+]
+
+function getStageInfo(progress: number) {
+  return STAGE_INFO.find((s) => progress >= s.min && progress < s.max) ?? STAGE_INFO[STAGE_INFO.length - 1]
+}
+
 function AiAnalyzingState({ progress }: { progress: number }) {
   const [stepIdx, setStepIdx] = useState(0)
   const [dots, setDots] = useState('.')
+  const [elapsed, setElapsed] = useState(0) // seconds
   const [logLines, setLogLines] = useState<string[]>([
     '> Initializing AI engine...',
     '> Loading SRS document into context...',
@@ -47,6 +61,12 @@ function AiAnalyzingState({ progress }: { progress: number }) {
     '> Ranking requirements by priority...',
     '> Generating test case IDs...',
   ]
+
+  // Elapsed timer
+  useEffect(() => {
+    const t = setInterval(() => setElapsed((s) => s + 1), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   // Cycle through steps
   useEffect(() => {
@@ -78,9 +98,30 @@ function AiAnalyzingState({ progress }: { progress: number }) {
   const step = AI_STEPS[stepIdx]
   const StepIcon = step.icon
   const done = Math.min(stepIdx, AI_STEPS.length - 1)
+  const stageInfo = getStageInfo(progress)
+  const elapsedMin = Math.floor(elapsed / 60)
+  const elapsedSec = elapsed % 60
+  const elapsedStr = `${elapsedMin}:${String(elapsedSec).padStart(2, '0')}`
 
   return (
     <div className="py-6 space-y-6">
+      {/* Stage + time banner */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-3 rounded-xl border border-slate-800 bg-slate-950">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-primary-600/20 text-primary-300 border border-primary-600/30">
+            {stageInfo.stage}
+          </span>
+          <span className="text-sm text-slate-300 font-medium">{stageInfo.label}</span>
+        </div>
+        <div className="flex items-center gap-4 text-xs text-slate-500">
+          <span className="flex items-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" />
+            Elapsed: <span className="text-slate-300 font-mono tabular-nums">{elapsedStr}</span>
+          </span>
+          <span>Usually completes in 3–6 min</span>
+        </div>
+      </div>
+
       {/* Active step hero */}
       <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-slate-950 p-8 text-center">
         {/* Ambient glow */}
@@ -147,7 +188,7 @@ function AiAnalyzingState({ progress }: { progress: number }) {
       </div>
 
       <p className="text-center text-xs text-slate-600">
-        {progress}% complete · This page refreshes automatically
+        {progress}% complete · {stageInfo.stage} · This page refreshes automatically
       </p>
     </div>
   )
@@ -225,6 +266,7 @@ type Project = {
   }
 }
 
+type ExecutionStatus = 'pass' | 'fail' | 'blocked' | 'skip'
 type Tab = 'overview' | 'features' | 'user_stories' | 'test_cases' | 'rtm' | 'analytics'
 
 const TABS: { key: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
@@ -278,6 +320,7 @@ export default function ProjectDetailPage() {
   const [highlightedReqId, setHighlightedReqId] = useState<string | null>(null)
   const [exportMenuOpen, setExportMenuOpen] = useState(false)
   const [pdfLoading, setPdfLoading] = useState(false)
+  const [executionStatus, setExecutionStatus] = useState<Record<string, ExecutionStatus>>({})
 
   // Scroll highlighted requirement into view when navigating to RTM tab
   useEffect(() => {
@@ -380,6 +423,25 @@ export default function ProjectDetailPage() {
 
     localStorage.setItem(seedKey, '1')
   }, [project])
+
+  // Load execution status from localStorage when project loads
+  useEffect(() => {
+    if (!project) return
+    try {
+      const raw = localStorage.getItem(`exec_status_${project.id}`)
+      if (raw) setExecutionStatus(JSON.parse(raw))
+    } catch { /* noop */ }
+  }, [project?.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const setTcStatus = (tcId: string, status: ExecutionStatus | null) => {
+    setExecutionStatus((prev) => {
+      const next = { ...prev }
+      if (status === null) delete next[tcId]
+      else next[tcId] = status
+      try { localStorage.setItem(`exec_status_${project!.id}`, JSON.stringify(next)) } catch { /* noop */ }
+      return next
+    })
+  }
 
   if (loading) {
     return (
@@ -739,10 +801,35 @@ export default function ProjectDetailPage() {
               <p className="text-slate-500 text-center py-12">No test cases generated yet.</p>
             ) : (
               <>
-                {/* Type summary bar */}
-                {testCases.some((tc) => tc.type) && (
-                  <div className="flex flex-wrap gap-2 mb-2">
-                    {(['positive', 'negative', 'edge'] as const).map((t) => {
+                {/* Execution summary + type bar */}
+                <div className="flex flex-wrap gap-2 mb-2 items-center">
+                  {/* Execution counts */}
+                  {([
+                    { key: 'pass' as ExecutionStatus, label: 'Pass', style: 'bg-emerald-900/30 text-emerald-300 border-emerald-700/60' },
+                    { key: 'fail' as ExecutionStatus, label: 'Fail', style: 'bg-rose-900/30 text-rose-300 border-rose-700/60' },
+                    { key: 'blocked' as ExecutionStatus, label: 'Blocked', style: 'bg-orange-900/30 text-orange-300 border-orange-700/60' },
+                    { key: 'skip' as ExecutionStatus, label: 'Skip', style: 'bg-slate-700/50 text-slate-300 border-slate-600' },
+                  ] as const).map(({ key, label, style }) => {
+                    const count = Object.values(executionStatus).filter((v) => v === key).length
+                    if (count === 0) return null
+                    return (
+                      <span key={key} className={`text-xs font-semibold px-3 py-1 rounded-full border ${style}`}>
+                        {label}: {count}
+                      </span>
+                    )
+                  })}
+                  {Object.keys(executionStatus).length > 0 && (
+                    <span className="text-xs text-slate-500">
+                      {testCases.length - Object.keys(executionStatus).length} untested
+                    </span>
+                  )}
+                  {/* Divider */}
+                  {Object.keys(executionStatus).length > 0 && testCases.some((tc) => tc.type) && (
+                    <span className="text-slate-700 select-none">·</span>
+                  )}
+                  {/* Type counts */}
+                  {testCases.some((tc) => tc.type) && (
+                    ['positive', 'negative', 'edge'].map((t) => {
                       const count = testCases.filter((tc) => tc.type === t).length
                       if (count === 0) return null
                       const style = t === 'positive' ? 'bg-emerald-900/20 text-emerald-300 border-emerald-800/50'
@@ -753,30 +840,67 @@ export default function ProjectDetailPage() {
                           {t.charAt(0).toUpperCase() + t.slice(1)}: {count}
                         </span>
                       )
-                    })}
-                    <span className="text-xs font-medium px-3 py-1 rounded-full border bg-slate-800/60 text-slate-400 border-slate-700">
-                      Total: {testCases.length}
-                    </span>
+                    })
+                  )}
+                  <span className="text-xs font-medium px-3 py-1 rounded-full border bg-slate-800/60 text-slate-400 border-slate-700 ml-auto">
+                    Total: {testCases.length}
+                  </span>
+                </div>
+
+                {/* Execution progress bar */}
+                {testCases.length > 0 && (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950 p-4 mb-1">
+                    <div className="flex items-center justify-between text-xs text-slate-500 mb-2">
+                      <span>Execution Progress</span>
+                      <span className="tabular-nums">
+                        {Object.keys(executionStatus).length} / {testCases.length} executed
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-800 rounded-full overflow-hidden flex">
+                      {([
+                        { key: 'pass' as ExecutionStatus, color: 'bg-emerald-500' },
+                        { key: 'fail' as ExecutionStatus, color: 'bg-rose-500' },
+                        { key: 'blocked' as ExecutionStatus, color: 'bg-orange-500' },
+                        { key: 'skip' as ExecutionStatus, color: 'bg-slate-500' },
+                      ] as const).map(({ key, color }) => {
+                        const count = Object.values(executionStatus).filter((v) => v === key).length
+                        const pct = (count / testCases.length) * 100
+                        if (pct === 0) return null
+                        return <div key={key} className={`h-full ${color}`} style={{ width: `${pct}%` }} />
+                      })}
+                    </div>
                   </div>
                 )}
 
                 {testCases.map((tc, i) => {
                   const sourceReq = rtm.find((r) => r.linkedTestCases?.includes(tc.testCaseId))
+                  const tcStatus = executionStatus[tc.testCaseId]
+                  const statusBorderMap: Record<ExecutionStatus, string> = {
+                    pass: 'border-emerald-700/60 bg-emerald-950/20',
+                    fail: 'border-rose-700/60 bg-rose-950/20',
+                    blocked: 'border-orange-700/60 bg-orange-950/10',
+                    skip: 'border-slate-600 bg-slate-900/30',
+                  }
                   return (
                     <div
                       key={i}
-                      className="bg-slate-950 border border-slate-800 rounded-xl px-5 py-4 hover:border-slate-600 hover:bg-slate-900/60 transition-all group"
+                      className={`border rounded-xl px-5 py-4 hover:border-slate-600 transition-all group ${
+                        tcStatus ? statusBorderMap[tcStatus] : 'border-slate-800 bg-slate-950 hover:bg-slate-900/60'
+                      }`}
                     >
                       <div className="flex items-start gap-3">
                         <span className="shrink-0 font-mono text-xs font-bold px-2 py-1 rounded bg-emerald-900/30 text-emerald-300 border border-emerald-800/50 mt-0.5">{tc.testCaseId}</span>
                         <div className="flex-1 min-w-0">
-                          <button
-                            onClick={() => setSelectedTestCase(tc)}
-                            className="text-left w-full"
-                          >
-                            <h3 className="text-white font-medium group-hover:text-primary-300 transition-colors mb-1">{tc.title}</h3>
+                          <button onClick={() => setSelectedTestCase(tc)} className="text-left w-full">
+                            <h3 className={`font-medium group-hover:text-primary-300 transition-colors mb-1 ${
+                              tcStatus === 'pass' ? 'text-emerald-300 line-through decoration-emerald-600/60'
+                              : tcStatus === 'fail' ? 'text-rose-300'
+                              : tcStatus === 'blocked' ? 'text-orange-300'
+                              : tcStatus === 'skip' ? 'text-slate-500 line-through'
+                              : 'text-white'
+                            }`}>{tc.title}</h3>
                           </button>
-                          <div className="flex flex-wrap gap-1.5 items-center">
+                          <div className="flex flex-wrap gap-1.5 items-center mb-2">
                             {tc.type && (
                               <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
                                 tc.type === 'positive' ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/40'
@@ -805,12 +929,30 @@ export default function ProjectDetailPage() {
                               </button>
                             )}
                           </div>
+                          {/* Execution status buttons */}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-slate-600 uppercase tracking-wider mr-1">Execute:</span>
+                            {([
+                              { s: 'pass' as ExecutionStatus, label: '✓ Pass', active: 'bg-emerald-600 text-white border-emerald-500', inactive: 'border-slate-700 text-slate-500 hover:border-emerald-700 hover:text-emerald-400' },
+                              { s: 'fail' as ExecutionStatus, label: '✗ Fail', active: 'bg-rose-600 text-white border-rose-500', inactive: 'border-slate-700 text-slate-500 hover:border-rose-700 hover:text-rose-400' },
+                              { s: 'blocked' as ExecutionStatus, label: '⊘ Blocked', active: 'bg-orange-600 text-white border-orange-500', inactive: 'border-slate-700 text-slate-500 hover:border-orange-700 hover:text-orange-400' },
+                              { s: 'skip' as ExecutionStatus, label: '— Skip', active: 'bg-slate-600 text-white border-slate-500', inactive: 'border-slate-700 text-slate-500 hover:border-slate-500 hover:text-slate-300' },
+                            ] as const).map(({ s, label, active, inactive }) => (
+                              <button
+                                key={s}
+                                onClick={() => setTcStatus(tc.testCaseId, tcStatus === s ? null : s)}
+                                className={`text-[11px] font-medium px-2.5 py-0.5 rounded-full border transition-all ${tcStatus === s ? active : inactive}`}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
                         </div>
                         <button
                           onClick={() => setSelectedTestCase(tc)}
                           className="text-slate-600 group-hover:text-slate-400 transition-colors text-xs shrink-0 mt-1 hover:text-primary-300"
                         >
-                          View details →
+                          View →
                         </button>
                       </div>
                     </div>

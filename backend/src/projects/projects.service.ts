@@ -270,15 +270,38 @@ export class ProjectsService implements OnModuleInit {
 
     const reportProgress = (value: number) => this.updateProjectProgress(projectId, value);
 
-    await reportProgress(10);
-
     try {
+      await reportProgress(10);
       const rawText = await this.extractTextFromFile(project.srsPath);
-      await reportProgress(30);
+      await reportProgress(20);
       const cleanedText = this.cleanText(rawText);
-      await reportProgress(45);
-      const structured = await this.callOpenAi(cleanedText, project.name);
-      await reportProgress(65);
+      await reportProgress(25);
+
+      // Stage 1 — Features + User Stories
+      this.logger.log(`Project ${projectId}: Stage 1 — extracting features & user stories`);
+      const stage1 = await this.callAiStage1(cleanedText, project.name);
+      this.logger.log(`Project ${projectId}: Stage 1 done — ${stage1.features.length} features, ${stage1.userStories.length} stories`);
+      await reportProgress(50);
+
+      // Stage 2 — Detailed test cases per user story
+      this.logger.log(`Project ${projectId}: Stage 2 — generating test cases for ${stage1.userStories.length} stories`);
+      const testCases = await this.callAiStage2(cleanedText, project.name, stage1.userStories);
+      this.logger.log(`Project ${projectId}: Stage 2 done — ${testCases.length} test cases`);
+      await reportProgress(75);
+
+      // Stage 3 — RTM + Analytics
+      this.logger.log(`Project ${projectId}: Stage 3 — building RTM & analytics`);
+      const stage3 = await this.callAiStage3(project.name, stage1.features, stage1.userStories, testCases);
+      this.logger.log(`Project ${projectId}: Stage 3 done — ${stage3.rtm.length} RTM entries`);
+      await reportProgress(90);
+
+      const structured = {
+        features: stage1.features,
+        userStories: stage1.userStories,
+        testCases,
+        rtm: stage3.rtm,
+        analytics: stage3.analytics,
+      };
       await this.persistStructuredOutput(project, cleanedText, structured);
       await reportProgress(100);
     } catch (error) {
@@ -291,6 +314,174 @@ export class ProjectsService implements OnModuleInit {
       this.logger.error(`Project ${projectId} failed: ${message}`);
       throw error;
     }
+  }
+
+  /** Stage 1: Extract all features and user stories from the SRS */
+  private async callAiStage1(text: string, projectName: string): Promise<{ features: any[]; userStories: any[] }> {
+    const truncated = text.length > 25000 ? text.slice(0, 25000) + '\n[...truncated...]' : text;
+
+    const systemPrompt = `You are a senior business analyst. Analyse the SRS and extract all features and user stories. Output ONLY a raw JSON object — no markdown, no fences, no explanation.
+
+Schema:
+{"features":[{"title":"string","description":"Detailed explanation of what this feature does","userImpact":"How this directly benefits the end user","technicalDetails":"Implementation notes, APIs or components involved","priority":"High|Medium|Low","module":"Which module/component"}],"userStories":[{"id":"US-1","actor":"string","goal":"string","benefit":"string","acceptanceCriteria":"Numbered list of specific testable criteria","priority":"High|Medium|Low","storyPoints":3,"featureRef":"Feature title this story belongs to","dependencies":["US-2"]}]}
+
+Rules:
+- Extract EVERY feature in the document — no artificial limits
+- Generate AT LEAST 2 detailed user stories per feature; more for complex features
+- Acceptance criteria must be a numbered list with at minimum 3 specific, testable items per story
+- Write full sentences with enough detail that a developer can act without reading the SRS
+- Close every bracket. Return valid JSON only.`;
+
+    const raw = await this.callAiWithRetry(
+      systemPrompt,
+      `Project: ${projectName}\n\nSRS Content:\n${truncated}\n\nExtract all features and user stories:`,
+      8192,
+    );
+    const parsed = this.parseAiResponse(raw);
+    return {
+      features: Array.isArray(parsed.features) ? parsed.features : [],
+      userStories: Array.isArray(parsed.userStories) ? parsed.userStories : [],
+    };
+  }
+
+  /** Stage 2: Generate detailed test cases covering every user story */
+  private async callAiStage2(text: string, projectName: string, userStories: any[]): Promise<any[]> {
+    const truncated = text.length > 12000 ? text.slice(0, 12000) + '\n[...truncated...]' : text;
+    const storiesSummary = userStories.map((s, i) => ({
+      id: s.id ?? `US-${i + 1}`,
+      actor: s.actor,
+      goal: s.goal,
+      acceptanceCriteria: s.acceptanceCriteria,
+    }));
+
+    const systemPrompt = `You are a senior QA architect. Generate comprehensive test cases for EVERY user story provided. Output ONLY a raw JSON array — no markdown, no fences, no commentary.
+
+Schema — array of test case objects:
+[{"testCaseId":"TC-1","userStoryRef":"US-1","title":"string","type":"positive|negative|edge","preconditions":"All system state that must exist before this test","steps":"1. Step one\\n2. Step two\\n3. Step three","expectedResult":"Exact system behaviour and output after all steps","severity":"Critical|High|Medium|Low","category":"Functional|Security|Performance|UI|Integration"}]
+
+MANDATORY RULES — you MUST follow these exactly:
+1. For EACH user story generate a MINIMUM of 4 test cases:
+   - At least 2 POSITIVE test cases: happy path, successful scenarios, valid input combinations
+   - At least 1 NEGATIVE test case: invalid input, error conditions, unauthorized access, missing data
+   - At least 1 EDGE case: boundary values, empty states, maximum limits, concurrent operations
+2. If a story has complex acceptance criteria, generate one test case per criterion
+3. Steps must be specific, numbered, and detailed enough for a tester to follow exactly
+4. Expected results must describe the EXACT system response (status codes, messages, UI changes)
+5. Cover security and performance concerns where applicable
+6. Return a valid JSON array only — no wrapping object.`;
+
+    const raw = await this.callAiWithRetry(
+      systemPrompt,
+      `Project: ${projectName}\n\nUser Stories to cover:\n${JSON.stringify(storiesSummary, null, 2)}\n\nSRS Context:\n${truncated}\n\nGenerate detailed test cases for ALL ${userStories.length} user stories (min 4 per story):`,
+      16384,
+    );
+
+    const jsonStr = this.extractJson(raw);
+    try {
+      const parsed = JSON.parse(jsonStr);
+      if (Array.isArray(parsed)) return parsed;
+      if (Array.isArray(parsed.testCases)) return parsed.testCases;
+    } catch { /* continue */ }
+    try {
+      const sanitised = this.sanitiseJson(jsonStr);
+      const repaired = this.repairJson(sanitised);
+      const parsed = JSON.parse(repaired);
+      if (Array.isArray(parsed)) return parsed;
+    } catch { /* continue */ }
+    const partial = this.extractPartialResult(jsonStr);
+    return Array.isArray(partial.testCases) ? partial.testCases : [];
+  }
+
+  /** Stage 3: Build RTM and analytics from the collected data */
+  private async callAiStage3(
+    projectName: string,
+    features: any[],
+    userStories: any[],
+    testCases: any[],
+  ): Promise<{ rtm: any[]; analytics: any }> {
+    const featSummary = features.map((f) => ({ title: f.title, priority: f.priority }));
+    const storySummary = userStories.map((s, i) => ({ id: s.id ?? `US-${i + 1}`, goal: s.goal, priority: s.priority }));
+    const tcSummary = testCases.map((tc, i) => ({
+      id: tc.testCaseId ?? `TC-${i + 1}`,
+      title: tc.title,
+      type: tc.type,
+      userStoryRef: tc.userStoryRef,
+    }));
+
+    const systemPrompt = `You are a requirements traceability expert. Given the features, user stories, and test cases, create the RTM and analytics summary. Output ONLY a raw JSON object — no markdown, no fences, no commentary.
+
+Schema:
+{"rtm":[{"requirementId":"REQ-1","description":"Clear description of this requirement","linkedUserStories":["US-1","US-2"],"linkedTestCases":["TC-1","TC-2","TC-3"]}],"analytics":{"totalFeatures":0,"totalUserStories":0,"totalTestCases":0,"totalRequirements":0,"coveragePercentage":85,"qualityScore":78,"coverageSummary":"Paragraph explaining coverage and quality","riskAreas":["Risk area with explanation"],"recommendations":["Actionable recommendation"],"testTypeBreakdown":{"positive":0,"negative":0,"edge":0},"priorityBreakdown":{"high":0,"medium":0,"low":0}}}
+
+Rules:
+- Create one RTM entry per high-level requirement (group related user stories under a requirement)
+- Link each requirement to ALL relevant user stories and test cases by their exact IDs
+- Analytics counts must match the actual numbers in the provided data
+- coveragePercentage and qualityScore should be realistic assessments (0–100)
+- Return valid JSON only.`;
+
+    const raw = await this.callAiWithRetry(
+      systemPrompt,
+      `Project: ${projectName}\n\nFeatures (${features.length}):\n${JSON.stringify(featSummary, null, 2)}\n\nUser Stories (${userStories.length}):\n${JSON.stringify(storySummary, null, 2)}\n\nTest Cases (${testCases.length}):\n${JSON.stringify(tcSummary, null, 2)}\n\nGenerate RTM and analytics:`,
+      8192,
+    );
+    const parsed = this.parseAiResponse(raw);
+    return {
+      rtm: Array.isArray(parsed.rtm) ? parsed.rtm : [],
+      analytics: parsed.analytics ?? {},
+    };
+  }
+
+  /** Shared AI call helper with timeout */
+  private async callAiWithRetry(systemPrompt: string, userPrompt: string, maxTokens: number): Promise<string> {
+    const model = this.configService.get<string>('NVIDIA_MODEL') || 'meta/llama-3.1-70b-instruct';
+    this.logger.log(`AI call [model=${model}, max_tokens=${maxTokens}]`);
+
+    const controller = new AbortController();
+    const hardTimer = setTimeout(() => {
+      this.logger.warn(`AI hard-timeout after 300 s [model=${model}]`);
+      controller.abort();
+    }, 300000);
+
+    try {
+      const response = await this.getOpenAiClient().chat.completions.create(
+        {
+          model,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          temperature: 0.1,
+          max_tokens: maxTokens,
+          stream: false,
+        },
+        { signal: controller.signal },
+      );
+      clearTimeout(hardTimer);
+      const raw: string = (response as any)?.choices?.[0]?.message?.content || '';
+      const finishReason = (response as any)?.choices?.[0]?.finish_reason;
+      this.logger.log(`AI done. finish_reason=${finishReason}, length=${raw.length}`);
+      if (!raw) throw new Error('LLM returned empty content — check model name and API key');
+      if (finishReason === 'length') this.logger.warn('Response cut off (length) — attempting repair');
+      return raw;
+    } catch (error) {
+      clearTimeout(hardTimer);
+      const detail = error instanceof Error ? error.message : String(error);
+      this.logger.error(`AI request failed [model=${model}]: ${detail}`);
+      throw new Error(`AI processing failed: ${detail}`);
+    }
+  }
+
+  /** Parse AI JSON response with fallback repair */
+  private parseAiResponse(raw: string): Record<string, any> {
+    const jsonStr = this.extractJson(raw);
+    try { return JSON.parse(jsonStr); } catch { /* continue */ }
+    const sanitised = this.sanitiseJson(jsonStr);
+    try { return JSON.parse(sanitised); } catch { /* continue */ }
+    const repaired = this.repairJson(sanitised);
+    try { return JSON.parse(repaired); } catch { /* continue */ }
+    this.logger.warn('Full parse failed — extracting partial arrays');
+    return this.extractPartialResult(jsonStr);
   }
 
   private async persistStructuredOutput(project: Project, cleanedText: string, structured: Record<string, any>) {
@@ -434,84 +625,6 @@ export class ProjectsService implements OnModuleInit {
     throw new BadRequestException('Unsupported document type');
   }
 
-  private async callOpenAi(text: string, projectName: string) {
-    // Send as much SRS content as possible to maximise AI output coverage
-    const truncated = text.length > 30000 ? text.slice(0, 30000) + '\n[...truncated...]' : text;
-    const model = this.configService.get<string>('NVIDIA_MODEL') || 'meta/llama-3.1-70b-instruct';
-    this.logger.log(`Calling AI model: ${model}`);
-
-    const controller = new AbortController();
-    const hardTimer = setTimeout(() => {
-      this.logger.warn(`AI call hard-timeout after 600 s [model=${model}]`);
-      controller.abort();
-    }, 600000);
-
-    try {
-      const response = await this.getOpenAiClient().chat.completions.create(
-        {
-          model,
-          messages: [
-            {
-              role: 'system',
-              content:
-                'You are a senior requirements analyst and QA architect. Output ONLY a raw JSON object — no markdown, no ```json fences, no explanation text. Use this exact schema:\n{"features":[{"title":"string","description":"Detailed explanation of what this feature does and its purpose within the system","userImpact":"How this feature directly benefits the end user and improves their experience","technicalDetails":"Implementation notes, architectural considerations, APIs or components involved","priority":"High|Medium|Low","module":"Which module or component this feature belongs to"}],"userStories":[{"actor":"string","goal":"string","benefit":"string","acceptanceCriteria":"Detailed numbered list of all acceptance criteria that must be met","priority":"High|Medium|Low","storyPoints":3,"dependencies":["US-1"]}],"testCases":[{"testCaseId":"TC-1","title":"string","type":"positive|negative|edge","preconditions":"All system state and data that must exist before executing this test","steps":"1. Step one\\n2. Step two\\n3. Step three","expectedResult":"Exact expected system behaviour and output","severity":"Critical|High|Medium|Low","category":"Functional|Security|Performance|UI|Integration"}],"rtm":[{"requirementId":"REQ-1","description":"string","linkedUserStories":["US-1"],"linkedTestCases":["TC-1"]}],"analytics":{"totalFeatures":0,"totalUserStories":0,"totalTestCases":0,"totalRequirements":0,"coveragePercentage":85,"qualityScore":78,"coverageSummary":"Detailed paragraph explaining overall test coverage and quality","riskAreas":["Specific risk area with explanation"],"recommendations":["Actionable recommendation for improving quality"],"testTypeBreakdown":{"positive":0,"negative":0,"edge":0},"priorityBreakdown":{"high":0,"medium":0,"low":0}}}.\nRules: Extract EVERY feature, user story, test case, and requirement — no artificial limits. For every feature generate at least 2 user stories. For every user story generate at least 2 test cases (one positive, one negative). Cover edge cases and boundary conditions. Write descriptions in full sentences with enough detail that a developer or tester could act on them without needing to read the original SRS. Close every JSON bracket. Valid JSON only.',
-            },
-            {
-              role: 'user',
-              content: `Project: ${projectName}\n\nSRS Content:\n${truncated}\n\nAnalyse the full document thoroughly. Return a comprehensive JSON object with detailed descriptions for every feature, user story, and test case — enough detail that a developer or tester can work from it directly:`,
-            },
-          ],
-          temperature: 0.1,
-          max_tokens: 16384,
-          stream: false,
-        },
-        { signal: controller.signal },
-      );
-
-      clearTimeout(hardTimer);
-
-      const raw: string = (response as any)?.choices?.[0]?.message?.content || '';
-      const finishReason = (response as any)?.choices?.[0]?.finish_reason;
-      this.logger.log(`AI done. finish_reason=${finishReason}, raw length=${raw.length}`);
-      this.logger.log(`AI preview: ${raw.slice(0, 300)}`);
-
-      if (!raw) {
-        throw new Error('LLM returned empty content — check model name and API key');
-      }
-      if (finishReason === 'length') {
-        this.logger.warn('Response was cut off (finish_reason=length) — attempting JSON repair');
-      }
-
-      const jsonStr = this.extractJson(raw);
-      try {
-        return JSON.parse(jsonStr);
-      } catch (firstErr) {
-        this.logger.warn(`Initial JSON parse failed: ${firstErr instanceof Error ? firstErr.message : firstErr}`);
-
-        // Step 1: sanitise common issues (unescaped control chars inside strings)
-        const sanitised = this.sanitiseJson(jsonStr);
-        try {
-          return JSON.parse(sanitised);
-        } catch { /* continue */ }
-
-        // Step 2: close unclosed brackets/braces on the sanitised string
-        const repaired = this.repairJson(sanitised);
-        this.logger.warn('Attempting repaired JSON parse');
-        try {
-          return JSON.parse(repaired);
-        } catch { /* continue */ }
-
-        // Step 3: extract whatever top-level arrays are valid and return a partial result
-        this.logger.warn('Full parse failed — extracting partial arrays');
-        return this.extractPartialResult(jsonStr);
-      }
-    } catch (error) {
-      clearTimeout(hardTimer);
-      const detail = error instanceof Error ? error.message : String(error);
-      this.logger.error(`AI request failed [model=${model}]: ${detail}`);
-      throw new Error(`AI processing failed: ${detail}`);
-    }
-  }
 
   /** Best-effort repair of truncated JSON by closing unclosed structures. */
   private repairJson(raw: string): string {
