@@ -89,9 +89,11 @@ export default function Dashboard() {
 
   const stats = useMemo<DashboardStats>(() => {
     const totalProjects = projects.length
-    const testCasesGenerated = projects.reduce((total, project) => total + (project.testCases?.length ?? 0), 0)
-    const scenariosGenerated = projects.reduce((total, project) => total + (project.userStories?.length ?? 0), 0)
-    const requirementsProcessed = projects.reduce((total, project) => total + (project.rtm?.length ?? 0), 0)
+    // Scope KPI metrics to the selected project; fall back to all projects when none selected
+    const source = selectedProject ? [selectedProject] : projects
+    const testCasesGenerated = source.reduce((total, project) => total + (project.testCases?.length ?? 0), 0)
+    const scenariosGenerated = source.reduce((total, project) => total + (project.userStories?.length ?? 0), 0)
+    const requirementsProcessed = source.reduce((total, project) => total + (project.rtm?.length ?? 0), 0)
     const completedProjects = projects.filter((project) => project.status === 'completed').length
 
     return {
@@ -102,28 +104,31 @@ export default function Dashboard() {
       aiUsageRemaining: Math.max(0, 1000 - totalProjects * 25),
       riskScore: totalProjects === 0 ? 0 : Math.max(5, 100 - Math.round((completedProjects / totalProjects) * 100)),
     }
-  }, [projects])
+  }, [projects, selectedProject])
 
+  const projectLabel = selectedProject ? selectedProject.name : 'All Projects'
   const kpis = useMemo(() => ([
-    { label: 'Total Projects', value: stats.totalProjects.toLocaleString(), icon: FolderOpen, color: 'blue' },
-    { label: 'Test Cases Generated', value: stats.testCasesGenerated.toLocaleString(), icon: TestTube, color: 'emerald' },
-    { label: 'Scenarios Generated', value: stats.scenariosGenerated.toLocaleString(), icon: Sparkles, color: 'purple' },
-    { label: 'Requirements Processed', value: stats.requirementsProcessed.toLocaleString(), icon: FileText, color: 'orange' },
-  ]), [stats])
+    { label: 'Total Projects', sublabel: 'workspace', value: stats.totalProjects.toLocaleString(), icon: FolderOpen, color: 'blue' },
+    { label: 'Test Cases', sublabel: projectLabel, value: stats.testCasesGenerated.toLocaleString(), icon: TestTube, color: 'emerald' },
+    { label: 'User Stories', sublabel: projectLabel, value: stats.scenariosGenerated.toLocaleString(), icon: Sparkles, color: 'purple' },
+    { label: 'Requirements', sublabel: projectLabel, value: stats.requirementsProcessed.toLocaleString(), icon: FileText, color: 'orange' },
+  ]), [stats, projectLabel])
 
-  // Real weekly trend: cumulative test cases from projects created up to each of the last 5 weeks
+  // Weekly trend: scoped to selected project when one is selected, otherwise all projects
   const trendData = useMemo(() => {
+    const source = selectedProject ? [selectedProject] : projects
     const now = new Date()
     return Array.from({ length: 5 }, (_, i) => {
       const cutoff = new Date(now)
       cutoff.setDate(now.getDate() - (4 - i) * 7)
-      const cumulative = projects.filter((p) => p.createdAt && new Date(p.createdAt) <= cutoff)
+      const cumulative = source.filter((p) => p.createdAt && new Date(p.createdAt) <= cutoff)
       const value = cumulative.reduce((s, p) => s + (p.testCases?.length ?? 0) + (p.userStories?.length ?? 0), 0)
       return { label: `W${i + 1}`, value }
     })
-  }, [projects])
+  }, [projects, selectedProject])
 
   const chartMax = Math.max(...trendData.map((point) => point.value), 1)
+  const barMax = Math.max(stats.testCasesGenerated, stats.scenariosGenerated, stats.requirementsProcessed, 1)
   const chartPoints = trendData
     .map((point, index) => {
       const x = (index / (trendData.length - 1)) * 100
@@ -338,6 +343,7 @@ export default function Dashboard() {
                 </div>
                 <p className="text-3xl font-bold text-white mt-4">{kpi.value}</p>
                 <p className="text-slate-400 text-sm font-medium mt-1">{kpi.label}</p>
+                <p className="text-slate-600 text-xs truncate mt-0.5">{kpi.sublabel}</p>
               </div>
             )
           })}
@@ -350,6 +356,7 @@ export default function Dashboard() {
               <div>
                 <p className="text-slate-400 text-sm font-medium">Project performance</p>
                 <h2 className="text-xl font-semibold text-white">Weekly progress trend</h2>
+                <p className="text-xs text-slate-500 mt-0.5">{projectLabel}</p>
               </div>
               <div className="inline-flex rounded-full border border-slate-800 bg-slate-900 px-3 py-1 text-xs uppercase tracking-[0.4em] text-slate-400">
                 Live analytics
@@ -404,7 +411,7 @@ export default function Dashboard() {
                     <span className="text-white">{bar.value.toLocaleString()}</span>
                   </div>
                   <div className="mt-3 h-2 rounded-full bg-slate-800 overflow-hidden">
-                    <div className={`${bar.color} h-full`} style={{ width: `${Math.min(100, (bar.value / (chartMax || 1)) * 100)}%` }} />
+                    <div className={`${bar.color} h-full`} style={{ width: `${Math.min(100, (bar.value / barMax) * 100)}%` }} />
                   </div>
                 </div>
               ))}
