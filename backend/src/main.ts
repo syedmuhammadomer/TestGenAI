@@ -6,11 +6,19 @@ import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const allowedOrigins = process.env.FRONTEND_URL
+    ? process.env.FRONTEND_URL.split(',').map((o) => o.trim())
+    : [];
+
   app.enableCors({
-    origin: true,
+    origin: allowedOrigins.length > 0
+      ? allowedOrigins
+      : (_origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) => callback(null, true),
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
+    preflightContinue: false,
+    optionsSuccessStatus: 204,
   });
   app.useWebSocketAdapter(new IoAdapter(app));
   const port = Number(process.env.PORT || 3002);
