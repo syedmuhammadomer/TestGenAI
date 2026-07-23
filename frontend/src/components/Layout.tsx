@@ -4,7 +4,7 @@ import { useRouter } from 'next/router'
 import {
   User, Settings, Zap,
   Home, FolderOpen, Sparkles, TestTube, Link as LinkIcon, File, BarChart, Users, CreditCard,
-  Menu, Kanban, LogOut, Sun, Moon, MessageSquare, ChevronDown, Check, UserCircle
+  Menu, Kanban, LogOut, Sun, Moon, MessageSquare, ChevronDown, Check, UserCircle, CalendarDays
 } from 'lucide-react'
 import { useProjectContext } from '@/context/ProjectContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -29,6 +29,7 @@ const navigationItems: NavigationItem[] = [
   { name: 'Analytics',        icon: BarChart,      href: '/analytics',    module: 'analytics'    },
   { name: 'Team',             icon: Users,         href: '/team',         module: 'team'         },
   { name: 'Chat',             icon: MessageSquare, href: '/chat',         module: 'team'         },
+  { name: 'Calendar',        icon: CalendarDays,  href: '/calendar',     module: 'calendar'     },
   { name: 'Profile',          icon: UserCircle,    href: '/profile',      module: 'settings'     },
   { name: 'Settings',         icon: Settings,      href: '/settings',     module: 'settings'     },
   { name: 'Billing',          icon: CreditCard,    href: '/billing',      module: 'billing'      },

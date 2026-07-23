@@ -18,6 +18,7 @@ export type ModuleKey =
   | 'documents'
   | 'analytics'
   | 'team'
+  | 'calendar'
   | 'settings'
   | 'billing'
 

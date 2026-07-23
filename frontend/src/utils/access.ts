@@ -3,17 +3,17 @@ import { MemberRole, ModuleKey, User } from '@/types'
 export const ALL_MODULES: ModuleKey[] = [
   'dashboard', 'projects', 'backlogs', 'user_stories',
   'test_manager', 'rtm', 'documents', 'analytics',
-  'team', 'settings', 'billing',
+  'team', 'calendar', 'settings', 'billing',
 ]
 
 export const DEFAULT_MODULES_BY_ROLE: Record<MemberRole, ModuleKey[]> = {
   company_admin: [...ALL_MODULES],
-  pm:          ['dashboard', 'projects', 'backlogs', 'user_stories', 'test_manager', 'rtm', 'documents', 'analytics', 'team', 'settings'],
-  qa_engineer: ['dashboard', 'projects', 'backlogs', 'test_manager', 'rtm', 'analytics', 'settings'],
-  developer:   ['dashboard', 'projects', 'backlogs', 'user_stories', 'settings'],
-  designer:    ['dashboard', 'projects', 'documents', 'settings'],
-  ba:          ['dashboard', 'projects', 'user_stories', 'rtm', 'documents', 'analytics', 'settings'],
-  viewer:      ['dashboard', 'projects', 'settings'],
+  pm:          ['dashboard', 'projects', 'backlogs', 'user_stories', 'test_manager', 'rtm', 'documents', 'analytics', 'team', 'calendar', 'settings'],
+  qa_engineer: ['dashboard', 'projects', 'backlogs', 'test_manager', 'rtm', 'analytics', 'calendar', 'settings'],
+  developer:   ['dashboard', 'projects', 'backlogs', 'user_stories', 'calendar', 'settings'],
+  designer:    ['dashboard', 'projects', 'documents', 'calendar', 'settings'],
+  ba:          ['dashboard', 'projects', 'user_stories', 'rtm', 'documents', 'analytics', 'calendar', 'settings'],
+  viewer:      ['dashboard', 'projects', 'calendar', 'settings'],
 }
 
 export const ROLE_LABELS: Record<MemberRole, string> = {
@@ -36,6 +36,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   documents:    'Documents',
   analytics:    'Analytics',
   team:         'Team',
+  calendar:     'Calendar',
   settings:     'Settings',
   billing:      'Billing',
 }
@@ -65,6 +66,7 @@ export const ROUTE_MODULE_MAP: Record<string, ModuleKey> = {
   '/documents':    'documents',
   '/analytics':    'analytics',
   '/team':         'team',
+  '/calendar':     'calendar',
   '/settings':     'settings',
   '/billing':      'billing',
 }

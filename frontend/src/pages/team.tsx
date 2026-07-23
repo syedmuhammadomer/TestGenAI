@@ -38,13 +38,13 @@ const ROLE_DESCRIPTIONS: Record<MemberRole, string> = {
 }
 
 const MODULE_ACCESS: Record<MemberRole, Record<ModuleKey, 'full' | 'view' | 'none'>> = {
-  company_admin: { dashboard:'full', projects:'full', backlogs:'full', user_stories:'full', test_manager:'full', rtm:'full', documents:'full', analytics:'full', team:'full', settings:'full', billing:'full' },
-  pm:            { dashboard:'full', projects:'full', backlogs:'full', user_stories:'full', test_manager:'full', rtm:'full', documents:'full', analytics:'full', team:'view', settings:'full', billing:'none' },
-  qa_engineer:   { dashboard:'view', projects:'view', backlogs:'view', user_stories:'view', test_manager:'full', rtm:'full', documents:'view', analytics:'view', team:'none', settings:'full', billing:'none' },
-  developer:     { dashboard:'view', projects:'view', backlogs:'view', user_stories:'view', test_manager:'view', rtm:'view', documents:'view', analytics:'view', team:'none', settings:'full', billing:'none' },
-  designer:      { dashboard:'view', projects:'view', backlogs:'none', user_stories:'none', test_manager:'none', rtm:'none', documents:'full', analytics:'none', team:'none', settings:'full', billing:'none' },
-  ba:            { dashboard:'view', projects:'view', backlogs:'none', user_stories:'full', test_manager:'none', rtm:'full', documents:'full', analytics:'view', team:'none', settings:'full', billing:'none' },
-  viewer:        { dashboard:'view', projects:'view', backlogs:'none', user_stories:'view', test_manager:'view', rtm:'view', documents:'view', analytics:'view', team:'none', settings:'view', billing:'none' },
+  company_admin: { dashboard:'full', projects:'full', backlogs:'full', user_stories:'full', test_manager:'full', rtm:'full', documents:'full', analytics:'full', team:'full', calendar:'full', settings:'full', billing:'full' },
+  pm:            { dashboard:'full', projects:'full', backlogs:'full', user_stories:'full', test_manager:'full', rtm:'full', documents:'full', analytics:'full', team:'view', calendar:'full', settings:'full', billing:'none' },
+  qa_engineer:   { dashboard:'view', projects:'view', backlogs:'view', user_stories:'view', test_manager:'full', rtm:'full', documents:'view', analytics:'view', team:'none', calendar:'view', settings:'full', billing:'none' },
+  developer:     { dashboard:'view', projects:'view', backlogs:'view', user_stories:'view', test_manager:'view', rtm:'view', documents:'view', analytics:'view', team:'none', calendar:'view', settings:'full', billing:'none' },
+  designer:      { dashboard:'view', projects:'view', backlogs:'none', user_stories:'none', test_manager:'none', rtm:'none', documents:'full', analytics:'none', team:'none', calendar:'view', settings:'full', billing:'none' },
+  ba:            { dashboard:'view', projects:'view', backlogs:'none', user_stories:'full', test_manager:'none', rtm:'full', documents:'full', analytics:'view', team:'none', calendar:'view', settings:'full', billing:'none' },
+  viewer:        { dashboard:'view', projects:'view', backlogs:'none', user_stories:'view', test_manager:'view', rtm:'view', documents:'view', analytics:'view', team:'none', calendar:'view', settings:'view', billing:'none' },
 }
 
 const accessColor: Record<string, string> = {

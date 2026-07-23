@@ -4,13 +4,49 @@ import { useRouter } from 'next/router'
 import {
   FileText,
   FolderOpen, Sparkles, TestTube, Users,
-  AlertTriangle, CheckCircle, XCircle, Clock, Upload, X, ClipboardList, ArrowUpRight
+  AlertTriangle, CheckCircle, XCircle, Clock, Upload, X, ClipboardList, ArrowUpRight,
+  CalendarDays, Video, MapPin,
 } from 'lucide-react'
 import Layout from '@/components/Layout'
 import Button from '@/components/Button'
 import { ProjectRecord, useProjectContext } from '@/context/ProjectContext'
 import { config } from '@/utils/config'
 import { teamService, TeamActivityRecord } from '@/services/teamService'
+
+interface UpcomingMeeting {
+  id: number
+  title: string
+  type: string
+  startDatetime: string
+  endDatetime: string
+  meetingLink?: string
+  location?: string
+  status: string
+}
+
+const MEETING_COLORS: Record<string, string> = {
+  sprint_planning: '#3b82f6', daily_standup: '#10b981',
+  sprint_review: '#8b5cf6', sprint_retrospective: '#7c3aed',
+  client_meeting: '#f97316', qa_review: '#06b6d4',
+  release_planning: '#f59e0b', custom: '#14b8a6',
+}
+
+const MEETING_LABELS: Record<string, string> = {
+  sprint_planning: 'Sprint Planning', daily_standup: 'Daily Standup',
+  sprint_review: 'Sprint Review', sprint_retrospective: 'Retrospective',
+  client_meeting: 'Client Meeting', qa_review: 'QA Review',
+  release_planning: 'Release Planning', custom: 'Meeting',
+}
+
+function formatCountdown(start: string): string {
+  const diff = new Date(start).getTime() - Date.now()
+  if (diff < 0) return 'Now'
+  const mins = Math.floor(diff / 60000)
+  if (mins < 60) return `in ${mins}m`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `in ${hrs}h`
+  return `in ${Math.floor(hrs / 24)}d`
+}
 
 interface DashboardStats {
   totalProjects: number
@@ -52,6 +88,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true)
   const [greetingName, setGreetingName] = useState('')
   const [teamActivityData, setTeamActivityData] = useState<TeamActivityRecord[]>([])
+  const [upcomingMeetings, setUpcomingMeetings] = useState<UpcomingMeeting[]>([])
   const { projects, selectedProject, setSelectedProjectId, reloadProjects } = useProjectContext()
 
   const recentActivity = useMemo<RecentActivity[]>(() =>
@@ -170,6 +207,10 @@ export default function Dashboard() {
     void reloadProjects()
     // Load real team activity for both activity feeds
     teamService.getDashboard().then((d) => setTeamActivityData(d.activity)).catch(() => {})
+    // Load upcoming meetings for dashboard widget
+    axios.get(`${config.apiBaseUrl}/api/calendar/meetings/upcoming?limit=5`, {
+      headers: { Authorization: `Bearer ${token}` },
+    }).then(({ data }) => setUpcomingMeetings(data)).catch(() => {})
   }, [router, reloadProjects])
 
   useEffect(() => {
@@ -635,6 +676,72 @@ export default function Dashboard() {
             </p>
           </div>
         )}
+
+        {/* Upcoming Sprint Meetings */}
+        <div className="bg-slate-950 border border-slate-800 rounded-2xl p-6 shadow-soft">
+          <div className="flex items-center justify-between mb-5">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="w-5 h-5 text-primary-400" />
+              <h3 className="text-lg font-semibold text-white">Upcoming Sprint Meetings</h3>
+            </div>
+            <a href="/calendar" className="flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300 transition-colors">
+              View Calendar <ArrowUpRight className="w-3.5 h-3.5" />
+            </a>
+          </div>
+          {upcomingMeetings.length === 0 ? (
+            <div className="text-center py-8">
+              <CalendarDays className="w-10 h-10 text-slate-700 mx-auto mb-3" />
+              <p className="text-sm text-slate-500">No upcoming meetings scheduled</p>
+              <a href="/calendar" className="mt-2 inline-block text-xs text-primary-400 hover:underline">Open Calendar</a>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {upcomingMeetings.map((m) => {
+                const color = MEETING_COLORS[m.type] ?? '#14b8a6'
+                const label = MEETING_LABELS[m.type] ?? 'Meeting'
+                const start = new Date(m.startDatetime)
+                return (
+                  <div key={m.id} className="flex items-start gap-3 p-3 rounded-xl border border-slate-800 hover:bg-slate-900/60 transition-colors group">
+                    <div className="w-10 h-10 rounded-xl flex flex-col items-center justify-center shrink-0" style={{ backgroundColor: color + '20' }}>
+                      <span className="text-[9px] font-bold uppercase" style={{ color }}>{start.toLocaleString('default', { month: 'short' })}</span>
+                      <span className="text-base font-bold leading-none" style={{ color }}>{start.getDate()}</span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-semibold text-white truncate">{m.title}</p>
+                        <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: color + '20', color }}>
+                          {label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-slate-500">
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-3 h-3" />
+                          {start.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        </span>
+                        {m.location && (
+                          <span className="flex items-center gap-1 truncate">
+                            <MapPin className="w-3 h-3 shrink-0" />{m.location}
+                          </span>
+                        )}
+                        <span className="ml-auto font-medium" style={{ color }}>{formatCountdown(m.startDatetime)}</span>
+                      </div>
+                    </div>
+                    {m.meetingLink && (
+                      <a
+                        href={m.meetingLink}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="shrink-0 flex items-center gap-1 text-[11px] px-2.5 py-1.5 rounded-lg bg-primary-600/15 text-primary-300 border border-primary-600/30 hover:bg-primary-600/25 transition-colors opacity-0 group-hover:opacity-100"
+                      >
+                        <Video className="w-3 h-3" /> Join
+                      </a>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Activity Feeds */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

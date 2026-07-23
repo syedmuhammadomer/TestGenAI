@@ -15,6 +15,7 @@ import { ProjectsModule } from './projects/projects.module';
 import { TeamModule } from './team/team.module';
 import { TeamMember } from './team/entities/team-member.entity';
 import { ChatModule } from './chat/chat.module';
+import { CalendarModule } from './calendar/calendar.module';
 
 const envCandidates = [
   path.resolve(process.cwd(), '.env'),
@@ -87,6 +88,7 @@ if (loadedEnvPath) {
     ProjectsModule,
     TeamModule,
     ChatModule,
+    CalendarModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService, AuthService, EmailService],
