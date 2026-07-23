@@ -3,7 +3,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import {
   User, Settings, Zap,
-  Home, FolderOpen, Sparkles, TestTube, Link, File, BarChart, Users, CreditCard,
+  Home, FolderOpen, Sparkles, TestTube, Link as LinkIcon, File, BarChart, Users, CreditCard,
   Menu, Kanban, LogOut, Sun, Moon, MessageSquare, ChevronDown, Check, UserCircle
 } from 'lucide-react'
 import { useProjectContext } from '@/context/ProjectContext'
@@ -24,7 +24,7 @@ const navigationItems: NavigationItem[] = [
   { name: 'Backlogs',         icon: Kanban,        href: '/backlogs',     module: 'backlogs'     },
   { name: 'User Stories',     icon: Sparkles,      href: '/user-stories', module: 'user_stories' },
   { name: 'Test Case Manager',icon: TestTube,      href: '/test-manager', module: 'test_manager' },
-  { name: 'RTM',              icon: Link,          href: '/rtm',          module: 'rtm'          },
+  { name: 'RTM',              icon: LinkIcon,      href: '/rtm',          module: 'rtm'          },
   { name: 'Documents',        icon: File,          href: '/documents',    module: 'documents'    },
   { name: 'Analytics',        icon: BarChart,      href: '/analytics',    module: 'analytics'    },
   { name: 'Team',             icon: Users,         href: '/team',         module: 'team'         },
