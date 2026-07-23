@@ -241,6 +241,28 @@ class AuthService {
   }
 
   /**
+   * Login / register via Google access token.
+   */
+  async googleLogin(accessToken: string): Promise<LoginResponse> {
+    try {
+      const response = await this.api.post<LoginResponse>('/auth/google', { accessToken })
+      if (response.data.token) {
+        storage.setToken(response.data.token)
+      }
+      try {
+        const meResponse = await this.api.get('/auth/me')
+        storage.setUser(meResponse.data)
+      } catch {
+        if (response.data.user) storage.setUser(response.data.user)
+      }
+      return response.data
+    } catch (error) {
+      const message = handleApiError(error)
+      throw { message, code: 'GOOGLE_LOGIN_ERROR' } as AuthError
+    }
+  }
+
+  /**
    * Check if user is authenticated
    */
   isAuthenticated(): boolean {

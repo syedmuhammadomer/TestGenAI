@@ -123,6 +123,22 @@ export class AuthController {
     return this.authService.verifyOtp(email, otp);
   }
 
+  @Post('google')
+  @ApiOperation({ summary: 'Sign in / sign up with Google access token' })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { accessToken: { type: 'string' } },
+      required: ['accessToken'],
+    },
+  })
+  @ApiResponse({ status: 200, description: 'Authenticated successfully' })
+  @ApiResponse({ status: 400, description: 'Invalid Google token' })
+  async googleAuth(@Body('accessToken') accessToken: string) {
+    if (!accessToken) throw new UnauthorizedException('accessToken is required');
+    return this.authService.googleAuth(accessToken);
+  }
+
   @Post('resend-otp')
   @ApiOperation({ summary: 'Resend OTP to email' })
   @ApiBody({

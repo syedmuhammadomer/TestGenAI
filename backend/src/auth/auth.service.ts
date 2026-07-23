@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import * as jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import { User } from './user.entity';
 import { PendingRegistration } from './pending-registration.entity';
 import { EmailService } from './email.service';
@@ -11,6 +12,7 @@ import { ALL_MODULES, DEFAULT_MODULES_BY_ROLE, MemberRole, TeamMember, TeamMembe
 @Injectable()
 export class AuthService {
   private readonly JWT_SECRET = process.env.JWT_SECRET || 'test-secret-key';
+  private readonly googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
   private readonly OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
   private readonly MAX_OTP_ATTEMPTS = 5;
 
@@ -55,7 +57,7 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<User | null> {
     const user = await this.userRepository.findOne({ where: { email: email.toLowerCase() } });
-    if (!user) return null;
+    if (!user || !user.passwordHash) return null;
     const match = await bcrypt.compare(password, user.passwordHash);
     return match ? user : null;
   }
@@ -254,6 +256,63 @@ export class AuthService {
   }
 
   /**
+   * Authenticate via Google access token — find or create user, return JWT.
+   */
+  async googleAuth(accessToken: string) {
+    // Verify the access token and fetch user info from Google
+    let googleUserId: string;
+    let email: string;
+    let firstName: string;
+    let lastName: string;
+
+    try {
+      const tokenInfo = await this.googleClient.getTokenInfo(accessToken);
+      if (!tokenInfo.email || !tokenInfo.sub) {
+        throw new BadRequestException('Invalid Google token');
+      }
+      googleUserId = tokenInfo.sub;
+      email = tokenInfo.email.toLowerCase();
+
+      // Fetch display name from Google userinfo endpoint (Node 18+ built-in fetch)
+      const userInfoRes = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+        headers: { Authorization: `Bearer ${accessToken}` },
+      });
+      const userInfo = await userInfoRes.json() as { given_name?: string; family_name?: string; name?: string };
+      firstName = userInfo.given_name || userInfo.name?.split(' ')[0] || 'User';
+      lastName = userInfo.family_name || userInfo.name?.split(' ').slice(1).join(' ') || '';
+    } catch {
+      throw new BadRequestException('Failed to verify Google token');
+    }
+
+    // Find existing user by googleId or email
+    let user = await this.userRepository.findOne({ where: { googleId: googleUserId } });
+    if (!user) {
+      user = await this.userRepository.findOne({ where: { email } });
+    }
+
+    if (user) {
+      // Link Google account if not already linked
+      if (!user.googleId) {
+        user.googleId = googleUserId;
+        await this.userRepository.save(user);
+      }
+    } else {
+      // Create new user — no password for Google accounts
+      user = this.userRepository.create({
+        firstName,
+        lastName,
+        email,
+        passwordHash: '',
+        googleId: googleUserId,
+        verified: true,
+      });
+      await this.userRepository.save(user);
+    }
+
+    return this.loginResponse(user);
+  }
+
+  /**
    * Generate login response with JWT token
    */
   async loginResponse(user: User) {
@@ -335,6 +394,7 @@ export class AuthService {
     const user = await this.userRepository.findOne({ where: { id: userId } });
     if (!user) throw new BadRequestException('User not found');
 
+    if (!user.passwordHash) throw new BadRequestException('This account uses Google sign-in and has no password');
     const match = await bcrypt.compare(currentPassword, user.passwordHash);
     if (!match) throw new BadRequestException('Current password is incorrect');
 
