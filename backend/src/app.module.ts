@@ -14,6 +14,7 @@ import { PendingRegistration } from './auth/pending-registration.entity';
 import { ProjectsModule } from './projects/projects.module';
 import { TeamModule } from './team/team.module';
 import { TeamMember } from './team/entities/team-member.entity';
+import { ChatModule } from './chat/chat.module';
 
 const envCandidates = [
   path.resolve(process.cwd(), '.env'),
@@ -85,6 +86,7 @@ if (loadedEnvPath) {
     TypeOrmModule.forFeature([User, PendingRegistration, TeamMember]),
     ProjectsModule,
     TeamModule,
+    ChatModule,
   ],
   controllers: [AppController, AuthController],
   providers: [AppService, AuthService, EmailService],

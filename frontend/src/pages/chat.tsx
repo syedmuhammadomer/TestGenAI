@@ -1,11 +1,13 @@
 'use client'
 
 import React, { useCallback, useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/router'
+import { io, Socket } from 'socket.io-client'
 import Layout from '@/components/Layout'
 import {
   MessageSquare, Plus, Search, X, Send, Users, Hash,
   ChevronDown, Check, FolderOpen, User, MoreVertical,
-  Paperclip, Smile, Phone, Video, Info, ArrowLeft, Loader2,
+  Paperclip, Smile, Info, ArrowLeft, Loader2,
 } from 'lucide-react'
 import { useProjectContext } from '@/context/ProjectContext'
 import { teamService, TeamMemberRecord } from '@/services/teamService'
@@ -23,6 +25,7 @@ interface ChatMember {
 
 interface Message {
   id: string
+  roomId: string
   senderId: string
   senderName: string
   text: string
@@ -42,6 +45,39 @@ interface Conversation {
   lastMessage: string
   lastTime: string
   online?: boolean
+}
+
+// ── Constants ─────────────────────────────────────────────────────────────────
+const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'
+const CONV_KEY = 'chat_conversations_v2'
+const ACTIVE_KEY = 'chat_active_id_v1'
+const UNREAD_KEY = 'chat_has_unread'
+const GENERAL_ID = 'c-general'
+
+// ── Persistence ───────────────────────────────────────────────────────────────
+function loadConversations(): Conversation[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(CONV_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch { return [] }
+}
+
+function saveConversations(convs: Conversation[]) {
+  try { localStorage.setItem(CONV_KEY, JSON.stringify(convs)) } catch { }
+}
+
+function getMyIdentity(): { id: string; name: string } {
+  if (typeof window === 'undefined') return { id: 'me', name: 'You' }
+  try {
+    const raw = localStorage.getItem('userData')
+    if (!raw) return { id: 'me', name: 'You' }
+    const u = JSON.parse(raw)
+    return {
+      id: String(u.id ?? 'me'),
+      name: u.firstName ? `${u.firstName} ${u.lastName ?? ''}`.trim() : (u.email ?? 'You'),
+    }
+  } catch { return { id: 'me', name: 'You' } }
 }
 
 // ── Converters ────────────────────────────────────────────────────────────────
@@ -98,21 +134,14 @@ function ModalShell({ title, icon, onClose, children }: { title: string; icon: R
   )
 }
 
-// ── Member Picker (shared) ────────────────────────────────────────────────────
-function MemberPicker({
-  members, selected, onToggle, loading, label,
-}: {
-  members: ChatMember[]
-  selected: string[]
-  onToggle: (id: string) => void
-  loading: boolean
-  label: string
+// ── Member Picker ─────────────────────────────────────────────────────────────
+function MemberPicker({ members, selected, onToggle, loading, label }: {
+  members: ChatMember[]; selected: string[]; onToggle: (id: string) => void; loading: boolean; label: string
 }) {
   const [search, setSearch] = useState('')
   const filtered = members.filter(
     (m) => m.name.toLowerCase().includes(search.toLowerCase()) || m.role.toLowerCase().includes(search.toLowerCase())
   )
-
   return (
     <div className="space-y-2">
       <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">
@@ -120,11 +149,8 @@ function MemberPicker({
       </label>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-        <input
-          type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search members..."
-          className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-        />
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search members..."
+          className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500" />
       </div>
       <div className="max-h-52 overflow-y-auto space-y-1 pr-0.5">
         {loading ? (
@@ -155,33 +181,22 @@ function MemberPicker({
 }
 
 // ── New Group Chat Modal ───────────────────────────────────────────────────────
-interface NewGroupModalProps {
-  members: ChatMember[]
-  loadingMembers: boolean
-  onClose: () => void
-  onCreated: (conv: Conversation) => void
-}
-
-function NewGroupModal({ members, loadingMembers, onClose, onCreated }: NewGroupModalProps) {
+function NewGroupModal({ members, loadingMembers, onClose, onCreated }: {
+  members: ChatMember[]; loadingMembers: boolean; onClose: () => void; onCreated: (conv: Conversation) => void
+}) {
   const [groupName, setGroupName] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [error, setError] = useState('')
-
-  const toggle = (id: string) =>
-    setSelected((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
+  const toggle = (id: string) => setSelected((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
 
   const handleCreate = () => {
     if (!groupName.trim()) { setError('Group name is required'); return }
-    if (selected.length < 2) { setError('Select at least 2 members'); return }
+    if (selected.length < 1) { setError('Select at least 1 member'); return }
     const chosenMembers = members.filter((m) => selected.includes(m.id))
     const conv: Conversation = {
-      id: `grp-${Date.now()}`, type: 'group',
-      name: groupName.trim(), members: chosenMembers,
+      id: `grp-${Date.now()}`, type: 'group', name: groupName.trim(), members: chosenMembers,
       unread: 0, lastMessage: 'Group created', lastTime: 'now',
-      messages: [{
-        id: 'sys', senderId: 'system', senderName: 'System',
-        text: `Group "${groupName.trim()}" was created.`, time: 'now', date: 'Today', isOwn: false,
-      }],
+      messages: [{ id: 'sys', roomId: `grp-${Date.now()}`, senderId: 'system', senderName: 'System', text: `Group "${groupName.trim()}" was created.`, time: 'now', date: 'Today', isOwn: false }],
     }
     onCreated(conv)
   }
@@ -193,11 +208,8 @@ function NewGroupModal({ members, loadingMembers, onClose, onCreated }: NewGroup
         <label className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Group Name</label>
         <div className="relative">
           <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-          <input
-            type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)}
-            placeholder="e.g. Backend Team"
-            className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-          />
+          <input type="text" value={groupName} onChange={(e) => setGroupName(e.target.value)} placeholder="e.g. Backend Team"
+            className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500" />
         </div>
       </div>
       <MemberPicker members={members} selected={selected} onToggle={toggle} loading={loadingMembers} label="Add Members" />
@@ -210,34 +222,23 @@ function NewGroupModal({ members, loadingMembers, onClose, onCreated }: NewGroup
 }
 
 // ── New Project Chat Modal ────────────────────────────────────────────────────
-interface NewProjectChatModalProps {
-  members: ChatMember[]
-  loadingMembers: boolean
-  onClose: () => void
-  onCreated: (conv: Conversation) => void
-}
-
-function NewProjectChatModal({ members, loadingMembers, onClose, onCreated }: NewProjectChatModalProps) {
+function NewProjectChatModal({ members, loadingMembers, onClose, onCreated }: {
+  members: ChatMember[]; loadingMembers: boolean; onClose: () => void; onCreated: (conv: Conversation) => void
+}) {
   const { projects } = useProjectContext()
   const [selectedProject, setSelectedProject] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [error, setError] = useState('')
-
-  const toggle = (id: string) =>
-    setSelectedMembers((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
+  const toggle = (id: string) => setSelectedMembers((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
 
   const handleCreate = () => {
     if (!selectedProject) { setError('Please select a project'); return }
     if (selectedMembers.length === 0) { setError('Select at least 1 member'); return }
     const chosenMembers = members.filter((m) => selectedMembers.includes(m.id))
     const conv: Conversation = {
-      id: `proj-${Date.now()}`, type: 'project',
-      name: selectedProject, projectName: selectedProject, members: chosenMembers,
-      unread: 0, lastMessage: 'Project chat created', lastTime: 'now',
-      messages: [{
-        id: 'sys', senderId: 'system', senderName: 'System',
-        text: `Project chat for "${selectedProject}" was created.`, time: 'now', date: 'Today', isOwn: false,
-      }],
+      id: `proj-${Date.now()}`, type: 'project', name: selectedProject, projectName: selectedProject,
+      members: chosenMembers, unread: 0, lastMessage: 'Project chat created', lastTime: 'now',
+      messages: [{ id: 'sys', roomId: `proj-${Date.now()}`, senderId: 'system', senderName: 'System', text: `Project chat for "${selectedProject}" was created.`, time: 'now', date: 'Today', isOwn: false }],
     }
     onCreated(conv)
   }
@@ -256,9 +257,6 @@ function NewProjectChatModal({ members, loadingMembers, onClose, onCreated }: Ne
           </select>
           <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
         </div>
-        {projects.length === 0 && (
-          <p className="text-xs text-slate-500">No projects found. Create a project first.</p>
-        )}
       </div>
       <MemberPicker members={members} selected={selectedMembers} onToggle={toggle} loading={loadingMembers} label="Add Members" />
       <div className="flex items-center justify-end gap-3 pt-2 border-t border-slate-800">
@@ -270,15 +268,9 @@ function NewProjectChatModal({ members, loadingMembers, onClose, onCreated }: Ne
 }
 
 // ── New DM Modal ───────────────────────────────────────────────────────────────
-interface NewDMModalProps {
-  members: ChatMember[]
-  loadingMembers: boolean
-  existingDMs: string[]
-  onClose: () => void
-  onCreated: (conv: Conversation) => void
-}
-
-function NewDMModal({ members, loadingMembers, existingDMs, onClose, onCreated }: NewDMModalProps) {
+function NewDMModal({ members, loadingMembers, existingDMs, onClose, onCreated }: {
+  members: ChatMember[]; loadingMembers: boolean; existingDMs: string[]; onClose: () => void; onCreated: (conv: Conversation) => void
+}) {
   const [search, setSearch] = useState('')
   const available = members.filter(
     (m) => !existingDMs.includes(m.name) && m.name.toLowerCase().includes(search.toLowerCase())
@@ -286,11 +278,8 @@ function NewDMModal({ members, loadingMembers, existingDMs, onClose, onCreated }
 
   const handleSelect = (member: ChatMember) => {
     const conv: Conversation = {
-      id: `dm-${Date.now()}`, type: 'direct',
-      name: member.name, online: member.online,
-      members: [member],
-      unread: 0, lastMessage: 'No messages yet', lastTime: 'now',
-      messages: [],
+      id: `dm-${Date.now()}`, type: 'direct', name: member.name, online: member.online,
+      members: [member], unread: 0, lastMessage: 'No messages yet', lastTime: 'now', messages: [],
     }
     onCreated(conv)
   }
@@ -299,11 +288,8 @@ function NewDMModal({ members, loadingMembers, existingDMs, onClose, onCreated }
     <ModalShell title="New Direct Message" icon={<User className="w-4 h-4 text-primary-400" />} onClose={onClose}>
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-        <input
-          type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-          placeholder="Search team members..."
-          className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-        />
+        <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search team members..."
+          className="w-full pl-9 pr-4 py-2.5 bg-slate-900 border border-slate-700 rounded-lg text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500" />
       </div>
       <div className="space-y-1 max-h-64 overflow-y-auto pr-0.5">
         {loadingMembers ? (
@@ -344,6 +330,10 @@ function ConvItem({ conv, active, onClick }: { conv: Conversation; active: boole
         ) : (
           <Avatar name={conv.name} size="md" online={conv.online} />
         )}
+        {/* Unread dot on avatar */}
+        {conv.unread > 0 && !active && (
+          <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-rose-500 border-2 border-slate-950" />
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-1">
@@ -351,10 +341,12 @@ function ConvItem({ conv, active, onClick }: { conv: Conversation; active: boole
           <span className="text-[10px] text-slate-500 shrink-0">{conv.lastTime}</span>
         </div>
         <div className="flex items-center justify-between gap-1 mt-0.5">
-          <p className="text-xs text-slate-400 truncate">{conv.lastMessage}</p>
-          {conv.unread > 0 && (
-            <span className="shrink-0 w-5 h-5 rounded-full bg-primary-600 text-white text-[10px] font-bold flex items-center justify-center">
-              {conv.unread}
+          <p className={`text-xs truncate ${conv.unread > 0 && !active ? 'text-slate-200 font-medium' : 'text-slate-400'}`}>
+            {conv.lastMessage}
+          </p>
+          {conv.unread > 0 && !active && (
+            <span className="shrink-0 min-w-[20px] h-5 rounded-full bg-rose-500 text-white text-[10px] font-bold flex items-center justify-center px-1">
+              {conv.unread > 99 ? '99+' : conv.unread}
             </span>
           )}
         </div>
@@ -364,7 +356,9 @@ function ConvItem({ conv, active, onClick }: { conv: Conversation; active: boole
 }
 
 // ── Chat Window ───────────────────────────────────────────────────────────────
-function ChatWindow({ conv, onSend, onBack }: { conv: Conversation; onSend: (text: string) => void; onBack: () => void }) {
+function ChatWindow({ conv, onSend, onBack, connected }: {
+  conv: Conversation; onSend: (text: string) => void; onBack: () => void; connected: boolean
+}) {
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
 
@@ -374,7 +368,7 @@ function ChatWindow({ conv, onSend, onBack }: { conv: Conversation; onSend: (tex
 
   const handleSend = () => {
     const t = text.trim()
-    if (!t) return
+    if (!t || !connected) return
     onSend(t)
     setText('')
   }
@@ -412,7 +406,7 @@ function ChatWindow({ conv, onSend, onBack }: { conv: Conversation; onSend: (tex
           <p className="text-sm font-semibold text-white">{conv.name}</p>
           {isGroup ? (
             <p className="text-xs text-slate-400">
-              {conv.members.length} members &middot; <span className="text-emerald-400">{onlineCount} online</span>
+              {conv.members.length} members · <span className="text-emerald-400">{onlineCount} online</span>
             </p>
           ) : (
             <p className={`text-xs ${conv.online ? 'text-emerald-400' : 'text-slate-500'}`}>
@@ -421,12 +415,11 @@ function ChatWindow({ conv, onSend, onBack }: { conv: Conversation; onSend: (tex
           )}
         </div>
         <div className="flex items-center gap-1">
-          <button className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Voice call">
-            <Phone className="w-4 h-4" />
-          </button>
-          <button className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Video call">
-            <Video className="w-4 h-4" />
-          </button>
+          {/* Connection indicator */}
+          <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 mr-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
+            <span className="text-[10px] text-slate-400">{connected ? 'Live' : 'Connecting…'}</span>
+          </div>
           <button className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Info">
             <Info className="w-4 h-4" />
           </button>
@@ -508,8 +501,9 @@ function ChatWindow({ conv, onSend, onBack }: { conv: Conversation; onSend: (tex
               onChange={(e) => setText(e.target.value)}
               onKeyDown={handleKey}
               rows={1}
-              placeholder={`Message ${conv.name}…`}
-              className="w-full px-4 py-3 pr-12 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none leading-relaxed"
+              placeholder={connected ? `Message ${conv.name}…` : 'Connecting to chat…'}
+              disabled={!connected}
+              className="w-full px-4 py-3 pr-12 bg-slate-900 border border-slate-700 rounded-xl text-slate-100 text-sm placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500 resize-none leading-relaxed disabled:opacity-50 disabled:cursor-not-allowed"
               style={{ minHeight: '44px', maxHeight: '120px' }}
             />
             <button className="absolute right-3 bottom-3 text-slate-400 hover:text-white transition-colors">
@@ -518,7 +512,7 @@ function ChatWindow({ conv, onSend, onBack }: { conv: Conversation; onSend: (tex
           </div>
           <button
             onClick={handleSend}
-            disabled={!text.trim()}
+            disabled={!text.trim() || !connected}
             className="p-2.5 bg-primary-600 hover:bg-primary-500 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl text-white transition-colors shrink-0 mb-0.5"
           >
             <Send className="w-4 h-4" />
@@ -530,40 +524,19 @@ function ChatWindow({ conv, onSend, onBack }: { conv: Conversation; onSend: (tex
   )
 }
 
-// ── Persistence helpers ───────────────────────────────────────────────────────
-const CONV_KEY = 'chat_conversations_v1'
-const ACTIVE_KEY = 'chat_active_id_v1'
-
-function loadConversations(): Conversation[] {
-  if (typeof window === 'undefined') return []
-  try {
-    const raw = localStorage.getItem(CONV_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch { return [] }
-}
-
-function saveConversations(convs: Conversation[]) {
-  try { localStorage.setItem(CONV_KEY, JSON.stringify(convs)) } catch { /* noop */ }
-}
-
 // ── Main Page ─────────────────────────────────────────────────────────────────
 type ModalType = 'group' | 'project' | 'dm' | null
 type FilterTab = 'all' | 'groups' | 'direct'
 
-const GENERAL_ID = 'c-general'
-
 function ensureGeneral(convs: Conversation[], members: ChatMember[]): Conversation[] {
   if (convs.some((c) => c.id === GENERAL_ID)) {
-    // update members list but keep existing messages
-    return convs.map((c) =>
-      c.id === GENERAL_ID ? { ...c, members } : c
-    )
+    return convs.map((c) => c.id === GENERAL_ID ? { ...c, members } : c)
   }
   const general: Conversation = {
-    id: GENERAL_ID, type: 'group', name: 'General',
-    members, unread: 0, lastMessage: 'Welcome to the team chat!', lastTime: 'now',
+    id: GENERAL_ID, type: 'group', name: 'General', members,
+    unread: 0, lastMessage: 'Welcome to the team chat!', lastTime: 'now',
     messages: [{
-      id: 'sys-0', senderId: 'system', senderName: 'System',
+      id: 'sys-0', roomId: GENERAL_ID, senderId: 'system', senderName: 'System',
       text: 'Welcome to General — your team hub for all updates.', time: 'now', date: 'Today', isOwn: false,
     }],
   }
@@ -571,38 +544,119 @@ function ensureGeneral(convs: Conversation[], members: ChatMember[]): Conversati
 }
 
 export default function ChatPage() {
+  const router = useRouter()
   const [conversations, setConversations] = useState<Conversation[]>(() => loadConversations())
-  const [activeId, setActiveId] = useState<string | null>(() => {
-    if (typeof window === 'undefined') return null
-    return localStorage.getItem(ACTIVE_KEY) ?? null
-  })
+  const [activeId, setActiveId] = useState<string | null>(() =>
+    typeof window !== 'undefined' ? (localStorage.getItem(ACTIVE_KEY) ?? null) : null
+  )
   const [modal, setModal] = useState<ModalType>(null)
   const [filter, setFilter] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
   const [showList, setShowList] = useState(true)
 
-  // Dynamic team members from backend
   const [teamMembers, setTeamMembers] = useState<ChatMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(true)
 
-  // Persist conversations whenever they change
-  useEffect(() => {
-    saveConversations(conversations)
-  }, [conversations])
+  // Socket state
+  const socketRef = useRef<Socket | null>(null)
+  const [connected, setConnected] = useState(false)
+  const activeIdRef = useRef<string | null>(activeId)
 
-  // Persist active conversation id
+  // Keep activeIdRef in sync
+  useEffect(() => { activeIdRef.current = activeId }, [activeId])
+
+  // Redirect if not logged in
+  useEffect(() => {
+    if (!localStorage.getItem('authToken')) router.push('/login')
+  }, [router])
+
+  // Clear unread flag when on chat page
+  useEffect(() => {
+    localStorage.removeItem(UNREAD_KEY)
+    window.dispatchEvent(new Event('chatUnreadChanged'))
+  }, [])
+
+  // Persist conversations
+  useEffect(() => { saveConversations(conversations) }, [conversations])
+
+  // Persist active id
   useEffect(() => {
     if (activeId) localStorage.setItem(ACTIVE_KEY, activeId)
   }, [activeId])
 
+  // ── Socket connection ─────────────────────────────────────────────────────
+  useEffect(() => {
+    const socket = io(`${SOCKET_URL}/chat`, {
+      transports: ['websocket', 'polling'],
+      auth: { token: localStorage.getItem('authToken') },
+      reconnectionAttempts: 5,
+      reconnectionDelay: 2000,
+    })
+    socketRef.current = socket
+
+    socket.on('connect', () => {
+      setConnected(true)
+      // Re-join current room after reconnect
+      if (activeIdRef.current) socket.emit('join_room', { roomId: activeIdRef.current })
+    })
+
+    socket.on('disconnect', () => setConnected(false))
+
+    // Load message history for a room
+    socket.on('room_history', (history: Omit<Message, 'isOwn'>[]) => {
+      const { id: myId } = getMyIdentity()
+      const msgs: Message[] = history.map((m) => ({ ...m, isOwn: m.senderId === myId }))
+      setConversations((prev) => prev.map((c) =>
+        c.id === activeIdRef.current
+          ? { ...c, messages: msgs, lastMessage: msgs[msgs.length - 1]?.text || c.lastMessage }
+          : c
+      ))
+    })
+
+    // New real-time message
+    socket.on('new_message', (msg: Omit<Message, 'isOwn'>) => {
+      const { id: myId } = getMyIdentity()
+      const fullMsg: Message = { ...msg, isOwn: msg.senderId === myId }
+      const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+
+      setConversations((prev) => prev.map((c) => {
+        if (c.id !== msg.roomId) return c
+        const isActive = activeIdRef.current === msg.roomId
+        return {
+          ...c,
+          messages: [...c.messages, fullMsg],
+          lastMessage: msg.text,
+          lastTime: now,
+          unread: isActive ? 0 : c.unread + 1,
+        }
+      }))
+
+      // Set sidebar unread flag if message is NOT in active conversation
+      if (activeIdRef.current !== msg.roomId && msg.senderId !== myId) {
+        localStorage.setItem(UNREAD_KEY, 'true')
+        window.dispatchEvent(new Event('chatUnreadChanged'))
+      }
+    })
+
+    return () => {
+      socket.disconnect()
+      socketRef.current = null
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Join room when active conversation changes ────────────────────────────
+  useEffect(() => {
+    if (!activeId || !socketRef.current) return
+    socketRef.current.emit('join_room', { roomId: activeId })
+  }, [activeId])
+
+  // ── Load team members ─────────────────────────────────────────────────────
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true)
     try {
       const data = await teamService.getDashboard()
       const members = data.members.map(toMember)
       setTeamMembers(members)
-
-      // Always ensure General channel exists (with or without team members)
       setConversations((prev) => {
         const updated = ensureGeneral(prev, members)
         saveConversations(updated)
@@ -610,7 +664,6 @@ export default function ChatPage() {
       })
       setActiveId((prev) => prev ?? GENERAL_ID)
     } catch {
-      // Still ensure General channel even without team data
       setConversations((prev) => {
         if (prev.some((c) => c.id === GENERAL_ID)) return prev
         const updated = ensureGeneral(prev, [])
@@ -621,22 +674,34 @@ export default function ChatPage() {
     } finally {
       setLoadingMembers(false)
     }
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => { void loadMembers() }, [loadMembers])
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
   const activeConv = conversations.find((c) => c.id === activeId) ?? null
 
   const filtered = conversations.filter((c) => {
     const matchTab = filter === 'all' || (filter === 'groups' && c.type !== 'direct') || (filter === 'direct' && c.type === 'direct')
-    const matchSearch = c.name.toLowerCase().includes(search.toLowerCase())
-    return matchTab && matchSearch
+    return matchTab && c.name.toLowerCase().includes(search.toLowerCase())
   })
 
   const handleSelect = (id: string) => {
     setConversations((prev) => prev.map((c) => c.id === id ? { ...c, unread: 0 } : c))
     setActiveId(id)
     setShowList(false)
+
+    // Clear global unread flag if no more unreads
+    setTimeout(() => {
+      setConversations((prev) => {
+        const totalUnread = prev.reduce((sum, c) => sum + (c.id !== id ? c.unread : 0), 0)
+        if (totalUnread === 0) {
+          localStorage.removeItem(UNREAD_KEY)
+          window.dispatchEvent(new Event('chatUnreadChanged'))
+        }
+        return prev
+      })
+    }, 0)
   }
 
   const handleCreated = (conv: Conversation) => {
@@ -647,19 +712,14 @@ export default function ChatPage() {
   }
 
   const handleSend = (text: string) => {
-    if (!activeId) return
-    const msg: Message = {
-      id: `msg-${Date.now()}`,
-      senderId: 'me', senderName: 'You',
-      text, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      date: 'Today', isOwn: true,
-    }
-    setConversations((prev) =>
-      prev.map((c) => c.id === activeId
-        ? { ...c, messages: [...c.messages, msg], lastMessage: text, lastTime: 'now' }
-        : c
-      )
-    )
+    if (!activeId || !socketRef.current || !connected) return
+    const { id: myId, name: myName } = getMyIdentity()
+    socketRef.current.emit('send_message', {
+      roomId: activeId,
+      text,
+      senderId: myId,
+      senderName: myName,
+    })
   }
 
   const existingDMs = conversations.filter((c) => c.type === 'direct').map((c) => c.name)
@@ -672,31 +732,25 @@ export default function ChatPage() {
         {/* Page Header */}
         <div className="flex items-center justify-between mb-5 shrink-0">
           <div>
-            <p className="text-xs uppercase tracking-[0.4em] text-slate-400">Workspace</p>
+            <p className="text-xs font-medium text-primary-400 mb-1">Workspace</p>
             <h1 className="text-2xl font-bold text-white flex items-center gap-2">
               Chat
               {totalUnread > 0 && (
-                <span className="text-sm font-semibold bg-primary-600 text-white rounded-full px-2 py-0.5">{totalUnread}</span>
+                <span className="text-sm font-semibold bg-rose-500 text-white rounded-full px-2 py-0.5">{totalUnread}</span>
               )}
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => setModal('dm')}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 bg-slate-900 border border-slate-700 rounded-lg hover:border-primary-600/50 hover:text-white transition-colors"
-            >
+            <button onClick={() => setModal('dm')}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 bg-slate-900 border border-slate-700 rounded-lg hover:border-primary-600/50 hover:text-white transition-colors">
               <User className="w-4 h-4 text-primary-400" /> DM
             </button>
-            <button
-              onClick={() => setModal('project')}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 bg-slate-900 border border-slate-700 rounded-lg hover:border-primary-600/50 hover:text-white transition-colors"
-            >
+            <button onClick={() => setModal('project')}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-slate-300 bg-slate-900 border border-slate-700 rounded-lg hover:border-primary-600/50 hover:text-white transition-colors">
               <FolderOpen className="w-4 h-4 text-indigo-400" /> Project Chat
             </button>
-            <button
-              onClick={() => setModal('group')}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-500 rounded-lg transition-colors"
-            >
+            <button onClick={() => setModal('group')}
+              className="flex items-center gap-2 px-3 py-2 text-sm font-semibold text-white bg-primary-600 hover:bg-primary-500 rounded-lg transition-colors">
               <Plus className="w-4 h-4" /> New Group
             </button>
           </div>
@@ -704,21 +758,16 @@ export default function ChatPage() {
 
         {/* Chat Layout */}
         <div className="flex-1 min-h-0 flex rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
-          {/* ── Sidebar ── */}
+          {/* Sidebar */}
           <div className={`w-full lg:w-80 xl:w-96 shrink-0 flex flex-col border-r border-slate-800 bg-slate-950 ${!showList ? 'hidden lg:flex' : 'flex'}`}>
-            {/* Search */}
             <div className="p-3 border-b border-slate-800">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-                <input
-                  type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                  placeholder="Search conversations..."
-                  className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500"
-                />
+                <input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search conversations..."
+                  className="w-full pl-9 pr-4 py-2 bg-slate-900 border border-slate-700 rounded-lg text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary-500/30 focus:border-primary-500" />
               </div>
             </div>
 
-            {/* Filter tabs */}
             <div className="flex border-b border-slate-800 px-1">
               {(['all', 'groups', 'direct'] as const).map((tab) => (
                 <button key={tab} onClick={() => setFilter(tab)}
@@ -728,7 +777,6 @@ export default function ChatPage() {
               ))}
             </div>
 
-            {/* Conversation list */}
             <div className="flex-1 overflow-y-auto p-2 space-y-0.5">
               {loadingMembers && conversations.length === 0 ? (
                 <div className="flex items-center justify-center py-12 gap-2 text-slate-500">
@@ -751,7 +799,6 @@ export default function ChatPage() {
               ))}
             </div>
 
-            {/* Sidebar footer — online count from live data */}
             <div className="p-3 border-t border-slate-800">
               {loadingMembers ? (
                 <div className="flex items-center gap-2 text-xs text-slate-600">
@@ -766,10 +813,10 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* ── Chat Window ── */}
+          {/* Chat Window */}
           <div className={`flex-1 min-w-0 ${showList && !activeConv ? 'hidden lg:flex' : 'flex'} flex-col`}>
             {activeConv ? (
-              <ChatWindow conv={activeConv} onSend={handleSend} onBack={() => setShowList(true)} />
+              <ChatWindow conv={activeConv} onSend={handleSend} onBack={() => setShowList(true)} connected={connected} />
             ) : (
               <div className="flex-1 flex flex-col items-center justify-center gap-4 text-center p-8">
                 <div className="w-20 h-20 rounded-2xl bg-primary-600/10 border border-primary-600/20 flex items-center justify-center">
@@ -795,16 +842,9 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {/* Modals */}
-      {modal === 'group' && (
-        <NewGroupModal members={teamMembers} loadingMembers={loadingMembers} onClose={() => setModal(null)} onCreated={handleCreated} />
-      )}
-      {modal === 'project' && (
-        <NewProjectChatModal members={teamMembers} loadingMembers={loadingMembers} onClose={() => setModal(null)} onCreated={handleCreated} />
-      )}
-      {modal === 'dm' && (
-        <NewDMModal members={teamMembers} loadingMembers={loadingMembers} existingDMs={existingDMs} onClose={() => setModal(null)} onCreated={handleCreated} />
-      )}
+      {modal === 'group' && <NewGroupModal members={teamMembers} loadingMembers={loadingMembers} onClose={() => setModal(null)} onCreated={handleCreated} />}
+      {modal === 'project' && <NewProjectChatModal members={teamMembers} loadingMembers={loadingMembers} onClose={() => setModal(null)} onCreated={handleCreated} />}
+      {modal === 'dm' && <NewDMModal members={teamMembers} loadingMembers={loadingMembers} existingDMs={existingDMs} onClose={() => setModal(null)} onCreated={handleCreated} />}
     </Layout>
   )
 }

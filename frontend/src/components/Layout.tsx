@@ -48,6 +48,7 @@ export default function Layout({ children }: LayoutProps) {
   })
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [chatUnread, setChatUnread] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
   const { projects, selectedProjectId, setSelectedProjectId, loading: projectsLoading } = useProjectContext()
 
@@ -61,6 +62,14 @@ export default function Layout({ children }: LayoutProps) {
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
   }, [])
+  // Track chat unread state from localStorage + custom event
+  useEffect(() => {
+    const check = () => setChatUnread(localStorage.getItem('chat_has_unread') === 'true')
+    check()
+    window.addEventListener('chatUnreadChanged', check)
+    return () => window.removeEventListener('chatUnreadChanged', check)
+  }, [router.pathname])
+
   const { theme, toggleTheme } = useTheme()
 
   // Always fetch fresh user data from /auth/me on every navigation so that
@@ -231,14 +240,19 @@ export default function Layout({ children }: LayoutProps) {
                       : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 border border-transparent'}
                 `}
               >
-                <Icon className={`
-                  w-[18px] h-[18px] mr-3 shrink-0 transition-all duration-200
-                  ${current
-                    ? 'text-primary-400'
-                    : isDark
-                      ? 'text-zinc-500 group-hover:text-primary-400'
-                      : 'text-zinc-400 group-hover:text-primary-500'}
-                `} />
+                <span className="relative mr-3 shrink-0">
+                  <Icon className={`
+                    w-[18px] h-[18px] transition-all duration-200
+                    ${current
+                      ? 'text-primary-400'
+                      : isDark
+                        ? 'text-zinc-500 group-hover:text-primary-400'
+                        : 'text-zinc-400 group-hover:text-primary-500'}
+                  `} />
+                  {item.name === 'Chat' && chatUnread && (
+                    <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-rose-500 ring-1 ring-zinc-950" />
+                  )}
+                </span>
                 {item.name}
                 {current && (
                   <span className="ml-auto w-1.5 h-1.5 rounded-full bg-primary-400" />

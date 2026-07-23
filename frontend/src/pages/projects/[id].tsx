@@ -273,6 +273,21 @@ export default function ProjectDetailPage() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('overview')
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null)
+  const [highlightedReqId, setHighlightedReqId] = useState<string | null>(null)
+
+  // Scroll highlighted requirement into view when navigating to RTM tab
+  useEffect(() => {
+    if (tab !== 'rtm' || !highlightedReqId) return
+    const el = document.getElementById(`req-${highlightedReqId}`)
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80)
+  }, [tab, highlightedReqId])
+
+  // Auto-clear highlight after 3 s
+  useEffect(() => {
+    if (!highlightedReqId) return
+    const t = setTimeout(() => setHighlightedReqId(null), 3000)
+    return () => clearTimeout(t)
+  }, [highlightedReqId])
 
   useEffect(() => {
     if (!id) return
@@ -303,6 +318,65 @@ export default function ProjectDetailPage() {
     return () => clearInterval(interval)
   }, [id, router])
 
+  // ── Side effects when project data loads/updates ──────────────────────────
+  useEffect(() => {
+    if (!project || project.status !== 'completed') return
+    const pid = project.id
+
+    // 1. Cache analytics for the projects list badges
+    const analytics = project.aiResponse?.analytics
+    if (analytics) {
+      try {
+        localStorage.setItem(`proj_analytics_${pid}`, JSON.stringify({
+          qualityScore: analytics.qualityScore,
+          coveragePercentage: analytics.coveragePercentage,
+        }))
+      } catch { /* storage full */ }
+    }
+
+    // 2. Auto-seed Kanban cards (only once per project)
+    const seedKey = `kanban_seeded_${pid}`
+    if (localStorage.getItem(seedKey)) return
+
+    const stories = (project.aiResponse?.userStories as UserStory[] | undefined) ?? project.userStories ?? []
+    if (stories.length === 0) return
+
+    // Ensure default sections exist
+    const sectionsKey = `kanban_sections_${pid}`
+    let sections: { id: string; name: string }[] = []
+    try {
+      const raw = localStorage.getItem(sectionsKey)
+      if (raw) sections = JSON.parse(raw)
+    } catch { /* noop */ }
+    if (sections.length === 0) {
+      sections = [
+        { id: 'backlog',     name: 'Backlog'      },
+        { id: 'in_progress', name: 'In Progress'  },
+        { id: 'qa_reviews',  name: 'QA Reviews'   },
+        { id: 'done',        name: 'Done'         },
+      ]
+      localStorage.setItem(sectionsKey, JSON.stringify(sections))
+    }
+
+    const backlogId = sections[0].id
+    stories.forEach((story, idx) => {
+      const storyId = story.id ?? idx + 1
+      const cardId  = `${pid}-${storyId}`
+      const cardKey = `kanban_card_${pid}_${cardId}`
+      if (!localStorage.getItem(cardKey)) {
+        const priority: 'High' | 'Medium' | 'Low' =
+          story.priority === 'High' ? 'High'
+          : story.priority === 'Low' ? 'Low'
+          : 'Medium'
+        localStorage.setItem(cardKey, JSON.stringify({
+          sectionId: backlogId, priority, labelIds: [], comments: [],
+        }))
+      }
+    })
+
+    localStorage.setItem(seedKey, '1')
+  }, [project])
+
   if (loading) {
     return (
       <div className="min-h-screen bg-surface flex items-center justify-center">
@@ -312,6 +386,11 @@ export default function ProjectDetailPage() {
   }
 
   if (!project) return null
+
+  const jumpToReq = (reqId: string) => {
+    setHighlightedReqId(reqId)
+    setTab('rtm')
+  }
 
   const features = (project.aiResponse?.features as Feature[] | undefined) ?? project.features ?? []
   const userStories = (project.aiResponse?.userStories as UserStory[] | undefined) ?? project.userStories ?? []
@@ -556,71 +635,7 @@ export default function ProjectDetailPage() {
       )}
 
       {tab === 'test_cases' && (
-        <>
-          {/* Test case detail modal */}
-          {selectedTestCase && (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
-              onClick={() => setSelectedTestCase(null)}
-            >
-              <div
-                className="w-full max-w-2xl bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {/* Modal header */}
-                <div className="flex items-start justify-between px-6 py-5 border-b border-slate-800">
-                  <div>
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/50">{selectedTestCase.testCaseId}</span>
-                      {selectedTestCase.type && (
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                          selectedTestCase.type === 'positive' ? 'bg-emerald-900/30 text-emerald-300 border-emerald-800/60'
-                          : selectedTestCase.type === 'negative' ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
-                          : 'bg-amber-900/30 text-amber-300 border-amber-800/60'
-                        }`}>{selectedTestCase.type.charAt(0).toUpperCase() + selectedTestCase.type.slice(1)}</span>
-                      )}
-                      {selectedTestCase.severity && (
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
-                          selectedTestCase.severity === 'Critical' ? 'bg-rose-900/40 text-rose-300 border-rose-800'
-                          : selectedTestCase.severity === 'High' ? 'bg-orange-900/30 text-orange-300 border-orange-800/60'
-                          : selectedTestCase.severity === 'Medium' ? 'bg-amber-900/30 text-amber-300 border-amber-800/60'
-                          : 'bg-slate-800/60 text-slate-400 border-slate-700'
-                        }`}>{selectedTestCase.severity}</span>
-                      )}
-                      {selectedTestCase.category && (
-                        <span className="text-xs px-2 py-0.5 rounded-full bg-primary-900/30 text-primary-300 border border-primary-800/50">{selectedTestCase.category}</span>
-                      )}
-                    </div>
-                    <h2 className="text-white font-bold text-lg">{selectedTestCase.title}</h2>
-                  </div>
-                  <button onClick={() => setSelectedTestCase(null)} className="text-slate-400 hover:text-white ml-4 text-xl leading-none">×</button>
-                </div>
-                {/* Modal body */}
-                <div className="divide-y divide-slate-800">
-                  {selectedTestCase.preconditions && (
-                    <div className="px-6 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Preconditions</p>
-                      <p className="text-slate-300 text-sm leading-relaxed">{selectedTestCase.preconditions}</p>
-                    </div>
-                  )}
-                  {selectedTestCase.steps && (
-                    <div className="px-6 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Test Steps</p>
-                      <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{selectedTestCase.steps}</div>
-                    </div>
-                  )}
-                  {selectedTestCase.expectedResult && (
-                    <div className="px-6 py-4">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Expected Result</p>
-                      <p className="text-slate-300 text-sm leading-relaxed">{selectedTestCase.expectedResult}</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-3">
+        <div className="space-y-3">
             {testCases.length === 0 ? (
               <p className="text-slate-500 text-center py-12">No test cases generated yet.</p>
             ) : (
@@ -646,85 +661,161 @@ export default function ProjectDetailPage() {
                   </div>
                 )}
 
-                {testCases.map((tc, i) => (
-                  <button
-                    key={i}
-                    onClick={() => setSelectedTestCase(tc)}
-                    className="w-full text-left bg-slate-950 border border-slate-800 rounded-xl px-5 py-4 hover:border-slate-600 hover:bg-slate-900/60 transition-all group"
-                  >
-                    <div className="flex items-start gap-3">
-                      <span className="shrink-0 font-mono text-xs font-bold px-2 py-1 rounded bg-emerald-900/30 text-emerald-300 border border-emerald-800/50 mt-0.5">{tc.testCaseId}</span>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2 mb-1">
-                          <h3 className="text-white font-medium group-hover:text-primary-300 transition-colors">{tc.title}</h3>
+                {testCases.map((tc, i) => {
+                  const sourceReq = rtm.find((r) => r.linkedTestCases?.includes(tc.testCaseId))
+                  return (
+                    <div
+                      key={i}
+                      className="bg-slate-950 border border-slate-800 rounded-xl px-5 py-4 hover:border-slate-600 hover:bg-slate-900/60 transition-all group"
+                    >
+                      <div className="flex items-start gap-3">
+                        <span className="shrink-0 font-mono text-xs font-bold px-2 py-1 rounded bg-emerald-900/30 text-emerald-300 border border-emerald-800/50 mt-0.5">{tc.testCaseId}</span>
+                        <div className="flex-1 min-w-0">
+                          <button
+                            onClick={() => setSelectedTestCase(tc)}
+                            className="text-left w-full"
+                          >
+                            <h3 className="text-white font-medium group-hover:text-primary-300 transition-colors mb-1">{tc.title}</h3>
+                          </button>
+                          <div className="flex flex-wrap gap-1.5 items-center">
+                            {tc.type && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                                tc.type === 'positive' ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/40'
+                                : tc.type === 'negative' ? 'bg-rose-900/20 text-rose-400 border-rose-800/40'
+                                : 'bg-amber-900/20 text-amber-400 border-amber-800/40'
+                              }`}>{tc.type}</span>
+                            )}
+                            {tc.severity && (
+                              <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                                tc.severity === 'Critical' ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
+                                : tc.severity === 'High' ? 'bg-orange-900/20 text-orange-400 border-orange-800/40'
+                                : tc.severity === 'Medium' ? 'bg-amber-900/20 text-amber-400 border-amber-800/40'
+                                : 'bg-slate-800/50 text-slate-400 border-slate-700'
+                              }`}>{tc.severity}</span>
+                            )}
+                            {tc.category && (
+                              <span className="text-xs px-2 py-0.5 rounded-full border bg-primary-900/20 text-primary-400 border-primary-800/40">{tc.category}</span>
+                            )}
+                            {sourceReq && (
+                              <button
+                                onClick={() => jumpToReq(sourceReq.requirementId)}
+                                className="text-xs px-2 py-0.5 rounded-full border bg-yellow-900/20 text-yellow-400 border-yellow-800/40 hover:bg-yellow-900/40 hover:text-yellow-300 transition-colors"
+                                title="View source requirement in RTM"
+                              >
+                                ↗ {sourceReq.requirementId}
+                              </button>
+                            )}
+                          </div>
                         </div>
-                        <div className="flex flex-wrap gap-1.5">
-                          {tc.type && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                              tc.type === 'positive' ? 'bg-emerald-900/20 text-emerald-400 border-emerald-800/40'
-                              : tc.type === 'negative' ? 'bg-rose-900/20 text-rose-400 border-rose-800/40'
-                              : 'bg-amber-900/20 text-amber-400 border-amber-800/40'
-                            }`}>{tc.type}</span>
-                          )}
-                          {tc.severity && (
-                            <span className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
-                              tc.severity === 'Critical' ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
-                              : tc.severity === 'High' ? 'bg-orange-900/20 text-orange-400 border-orange-800/40'
-                              : tc.severity === 'Medium' ? 'bg-amber-900/20 text-amber-400 border-amber-800/40'
-                              : 'bg-slate-800/50 text-slate-400 border-slate-700'
-                            }`}>{tc.severity}</span>
-                          )}
-                          {tc.category && (
-                            <span className="text-xs px-2 py-0.5 rounded-full border bg-primary-900/20 text-primary-400 border-primary-800/40">{tc.category}</span>
-                          )}
-                        </div>
+                        <button
+                          onClick={() => setSelectedTestCase(tc)}
+                          className="text-slate-600 group-hover:text-slate-400 transition-colors text-xs shrink-0 mt-1 hover:text-primary-300"
+                        >
+                          View details →
+                        </button>
                       </div>
-                      <span className="text-slate-600 group-hover:text-slate-400 transition-colors text-xs shrink-0 mt-1">View details →</span>
                     </div>
-                  </button>
-                ))}
+                  )
+                })}
               </>
             )}
           </div>
-        </>
+        </div>
       )}
 
       {tab === 'rtm' && (
-        <div className="overflow-x-auto rounded-xl border border-slate-800">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-slate-800 bg-slate-900">
-                <th className="text-left px-4 py-3 text-slate-400 font-semibold w-28">Req ID</th>
-                <th className="text-left px-4 py-3 text-slate-400 font-semibold">Description</th>
-                <th className="text-left px-4 py-3 text-slate-400 font-semibold">Linked Stories</th>
-                <th className="text-left px-4 py-3 text-slate-400 font-semibold">Linked Test Cases</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rtm.length === 0 ? (
-                <tr><td colSpan={4} className="text-center py-12 text-slate-500">No RTM entries yet.</td></tr>
-              ) : rtm.map((r, i) => (
-                <tr key={r.id} className={i % 2 === 0 ? 'bg-slate-950' : 'bg-slate-900/50'}>
-                  <td className="px-4 py-3 font-mono text-yellow-300">{r.requirementId}</td>
-                  <td className="px-4 py-3 text-slate-300">{r.description}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {r.linkedUserStories?.map((s) => (
-                        <span key={s} className="px-1.5 py-0.5 rounded bg-accent/20 text-accent text-xs">{s}</span>
-                      ))}
+        <div className="space-y-3">
+          {rtm.length === 0 ? (
+            <p className="text-slate-500 text-center py-12">No RTM entries yet.</p>
+          ) : (
+            <>
+              <p className="text-xs text-slate-500 mb-4">
+                Click a <span className="text-emerald-400">test case</span> to view its details · Click a <span className="text-accent">user story</span> to navigate to it · Use <span className="text-yellow-400">↗ REQ-xxx</span> badges in Test Cases to trace back here
+              </p>
+              {rtm.map((r) => {
+                const isHighlighted = highlightedReqId === r.requirementId
+                return (
+                  <div
+                    key={r.requirementId}
+                    id={`req-${r.requirementId}`}
+                    className={`rounded-xl border overflow-hidden transition-all duration-500 ${
+                      isHighlighted
+                        ? 'border-yellow-500/70 shadow-[0_0_24px_4px_rgba(234,179,8,0.15)] bg-yellow-900/5'
+                        : 'border-slate-800 bg-slate-950'
+                    }`}
+                  >
+                    {/* Requirement header */}
+                    <div className={`flex items-start gap-3 px-5 py-4 border-b ${isHighlighted ? 'border-yellow-800/40' : 'border-slate-800/60'}`}>
+                      <span className={`shrink-0 font-mono text-xs font-bold px-2.5 py-1 rounded border ${
+                        isHighlighted ? 'bg-yellow-900/40 text-yellow-300 border-yellow-700/60' : 'bg-yellow-900/20 text-yellow-300 border-yellow-800/40'
+                      }`}>{r.requirementId}</span>
+                      <p className="text-slate-200 text-sm leading-relaxed">{r.description}</p>
+                      {isHighlighted && (
+                        <span className="shrink-0 text-xs text-yellow-400 font-semibold animate-pulse">← traced</span>
+                      )}
                     </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-1">
-                      {r.linkedTestCases?.map((t) => (
-                        <span key={t} className="px-1.5 py-0.5 rounded bg-emerald-700/20 text-emerald-300 text-xs">{t}</span>
-                      ))}
+
+                    {/* Linked stories + test cases */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-slate-800/60">
+                      {/* User stories */}
+                      <div className="px-5 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                          User Stories <span className="text-slate-600 normal-case font-normal">({r.linkedUserStories?.length ?? 0})</span>
+                        </p>
+                        {(!r.linkedUserStories || r.linkedUserStories.length === 0) ? (
+                          <p className="text-slate-600 text-xs">None linked</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {r.linkedUserStories.map((storyId) => (
+                              <button
+                                key={storyId}
+                                onClick={() => setTab('user_stories')}
+                                className="text-xs px-2 py-0.5 rounded-full bg-accent/15 text-accent border border-accent/30 hover:bg-accent/30 hover:text-white transition-colors"
+                                title="Go to User Stories tab"
+                              >
+                                {storyId}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Test cases */}
+                      <div className="px-5 py-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
+                          Test Cases <span className="text-slate-600 normal-case font-normal">({r.linkedTestCases?.length ?? 0})</span>
+                        </p>
+                        {(!r.linkedTestCases || r.linkedTestCases.length === 0) ? (
+                          <p className="text-slate-600 text-xs">None linked</p>
+                        ) : (
+                          <div className="flex flex-wrap gap-1.5">
+                            {r.linkedTestCases.map((tcId) => {
+                              const tc = testCases.find((t) => t.testCaseId === tcId)
+                              return (
+                                <button
+                                  key={tcId}
+                                  onClick={() => tc ? setSelectedTestCase(tc) : undefined}
+                                  className={`text-xs px-2 py-0.5 rounded-full border transition-colors ${
+                                    tc
+                                      ? 'bg-emerald-900/20 text-emerald-300 border-emerald-800/40 hover:bg-emerald-900/50 hover:text-emerald-200 cursor-pointer'
+                                      : 'bg-slate-800/50 text-slate-500 border-slate-700 cursor-default'
+                                  }`}
+                                  title={tc ? `${tc.title} — click to view` : tcId}
+                                >
+                                  {tcId}
+                                </button>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                  </div>
+                )
+              })}
+            </>
+          )}
+
         </div>
       )}
 
@@ -893,6 +984,77 @@ export default function ProjectDetailPage() {
               )}
             </>
           )}
+        </div>
+      )}
+      {/* Global test case detail modal — works from any tab */}
+      {selectedTestCase && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm"
+          onClick={() => setSelectedTestCase(null)}
+        >
+          <div
+            className="w-full max-w-2xl bg-slate-950 border border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between px-6 py-5 border-b border-slate-800">
+              <div>
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className="text-xs font-mono font-bold px-2 py-0.5 rounded bg-emerald-900/40 text-emerald-300 border border-emerald-800/50">{selectedTestCase.testCaseId}</span>
+                  {selectedTestCase.type && (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                      selectedTestCase.type === 'positive' ? 'bg-emerald-900/30 text-emerald-300 border-emerald-800/60'
+                      : selectedTestCase.type === 'negative' ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
+                      : 'bg-amber-900/30 text-amber-300 border-amber-800/60'
+                    }`}>{selectedTestCase.type.charAt(0).toUpperCase() + selectedTestCase.type.slice(1)}</span>
+                  )}
+                  {selectedTestCase.severity && (
+                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${
+                      selectedTestCase.severity === 'Critical' ? 'bg-rose-900/40 text-rose-300 border-rose-800'
+                      : selectedTestCase.severity === 'High' ? 'bg-orange-900/30 text-orange-300 border-orange-800/60'
+                      : selectedTestCase.severity === 'Medium' ? 'bg-amber-900/30 text-amber-300 border-amber-800/60'
+                      : 'bg-slate-800/60 text-slate-400 border-slate-700'
+                    }`}>{selectedTestCase.severity}</span>
+                  )}
+                  {selectedTestCase.category && (
+                    <span className="text-xs px-2 py-0.5 rounded-full bg-primary-900/30 text-primary-300 border border-primary-800/50">{selectedTestCase.category}</span>
+                  )}
+                </div>
+                <h2 className="text-white font-bold text-lg">{selectedTestCase.title}</h2>
+                {(() => {
+                  const src = rtm.find((r) => r.linkedTestCases?.includes(selectedTestCase.testCaseId))
+                  return src ? (
+                    <button
+                      onClick={() => { setSelectedTestCase(null); jumpToReq(src.requirementId) }}
+                      className="mt-1.5 text-xs text-yellow-400 hover:text-yellow-300 transition-colors"
+                    >
+                      ↗ Traced from {src.requirementId} — view in RTM
+                    </button>
+                  ) : null
+                })()}
+              </div>
+              <button onClick={() => setSelectedTestCase(null)} className="text-slate-400 hover:text-white ml-4 text-xl leading-none">×</button>
+            </div>
+            <div className="divide-y divide-slate-800">
+              {selectedTestCase.preconditions && (
+                <div className="px-6 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Preconditions</p>
+                  <p className="text-slate-300 text-sm leading-relaxed">{selectedTestCase.preconditions}</p>
+                </div>
+              )}
+              {selectedTestCase.steps && (
+                <div className="px-6 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Test Steps</p>
+                  <div className="text-slate-300 text-sm leading-relaxed whitespace-pre-line">{selectedTestCase.steps}</div>
+                </div>
+              )}
+              {selectedTestCase.expectedResult && (
+                <div className="px-6 py-4">
+                  <p className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">Expected Result</p>
+                  <p className="text-slate-300 text-sm leading-relaxed">{selectedTestCase.expectedResult}</p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       )}
     </Layout>
