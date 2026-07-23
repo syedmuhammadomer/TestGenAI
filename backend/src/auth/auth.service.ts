@@ -330,6 +330,21 @@ export class AuthService {
   }
 
   /**
+   * Change the current user's password after verifying the current one.
+   */
+  async changePassword(userId: number, currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('User not found');
+
+    const match = await bcrypt.compare(currentPassword, user.passwordHash);
+    if (!match) throw new BadRequestException('Current password is incorrect');
+
+    user.passwordHash = await bcrypt.hash(newPassword, 10);
+    await this.userRepository.save(user);
+    return { message: 'Password changed successfully' };
+  }
+
+  /**
    * List all users (admin only) for the permissions management screen
    */
   async listUsers() {

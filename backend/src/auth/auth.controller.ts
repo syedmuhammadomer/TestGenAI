@@ -4,6 +4,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto, VerifyOtpDto, ResendOtpDto } from './dto/register.dto';
 import { UpdateRoleDto } from './dto/update-role.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthenticatedRequest, JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AdminGuard } from './guards/admin.guard';
 
@@ -155,6 +156,14 @@ export class AuthController {
   @ApiOperation({ summary: 'Get the current authenticated user profile' })
   async me(@Req() req: AuthenticatedRequest) {
     return this.authService.getMe(req.user!.id);
+  }
+
+  @Patch('change-password')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Change the current user password' })
+  async changePassword(@Req() req: AuthenticatedRequest, @Body() body: ChangePasswordDto) {
+    return this.authService.changePassword(req.user!.id, body.currentPassword, body.newPassword);
   }
 
   @Get('users')
