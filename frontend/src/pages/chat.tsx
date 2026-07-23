@@ -621,7 +621,7 @@ export default function ChatPage() {
     // Receive list of persisted group/project rooms on connect
     socket.on('group_rooms', (rooms: RoomInfo[]) => {
       setConversations((prev) => {
-        let next = [...prev]
+        const next = [...prev]
         for (const room of rooms) {
           if (next.some((c) => c.id === room.id)) continue
           const roomMembers = teamMembersRef.current.filter((m) => room.memberIds.includes(m.id))
