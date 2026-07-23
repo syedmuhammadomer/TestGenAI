@@ -8,8 +8,10 @@ import {
   ArrowLeft, Sparkles, TestTube, Link, BarChart2, Layers,
   CheckCircle2, Clock, XCircle, RefreshCw, ChevronDown, ChevronUp,
   Brain, Cpu, FileSearch, GitBranch, Zap,
+  Download, FileText, FileSpreadsheet, Loader2,
 } from 'lucide-react'
 import { config } from '@/utils/config'
+import { exportTestCasesCSV, exportTestCasesTemplate, generatePDFReport } from '@/utils/exportUtils'
 
 // ── AI Processing animation steps ────────────────────────────────────────────
 const AI_STEPS = [
@@ -274,6 +276,8 @@ export default function ProjectDetailPage() {
   const [tab, setTab] = useState<Tab>('overview')
   const [selectedTestCase, setSelectedTestCase] = useState<TestCase | null>(null)
   const [highlightedReqId, setHighlightedReqId] = useState<string | null>(null)
+  const [exportMenuOpen, setExportMenuOpen] = useState(false)
+  const [pdfLoading, setPdfLoading] = useState(false)
 
   // Scroll highlighted requirement into view when navigating to RTM tab
   useEffect(() => {
@@ -400,6 +404,24 @@ export default function ProjectDetailPage() {
 
   const isProcessing = project.status === 'processing' || project.status === 'queued'
 
+  const exportData = {
+    projectName: project.name,
+    createdAt: project.createdAt,
+    features,
+    userStories,
+    testCases,
+    rtm,
+    analytics,
+  }
+
+  const handleGeneratePDF = async () => {
+    setPdfLoading(true)
+    setExportMenuOpen(false)
+    // Let the UI re-render before the heavy PDF work
+    await new Promise((r) => setTimeout(r, 50))
+    try { generatePDFReport(exportData) } finally { setPdfLoading(false) }
+  }
+
   return (
     <Layout>
       {/* Back + header */}
@@ -417,7 +439,84 @@ export default function ProjectDetailPage() {
               Created {new Date(project.createdAt).toLocaleDateString()} · Last updated {new Date(project.updatedAt).toLocaleString()}
             </p>
           </div>
-          <StatusBadge status={project.status} />
+
+          <div className="flex items-center gap-3">
+            <StatusBadge status={project.status} />
+
+            {/* Export dropdown — only when completed */}
+            {project.status === 'completed' && (
+              <div className="relative">
+                <button
+                  onClick={() => setExportMenuOpen((o) => !o)}
+                  disabled={pdfLoading}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-primary-600/15 hover:bg-primary-600/25 border border-primary-600/30 text-primary-300 text-sm font-medium transition-all disabled:opacity-50"
+                >
+                  {pdfLoading
+                    ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</>
+                    : <><Download className="w-4 h-4" /> Export <ChevronUp className={`w-3.5 h-3.5 transition-transform ${exportMenuOpen ? '' : 'rotate-180'}`} /></>
+                  }
+                </button>
+
+                {exportMenuOpen && (
+                  <>
+                    {/* click-away backdrop */}
+                    <div className="fixed inset-0 z-40" onClick={() => setExportMenuOpen(false)} />
+                    <div className="absolute right-0 top-full mt-2 z-50 w-64 rounded-2xl border border-slate-700 bg-slate-900 shadow-2xl overflow-hidden">
+                      <div className="px-4 py-3 border-b border-slate-800">
+                        <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Export Options</p>
+                      </div>
+
+                      {/* CSV Export */}
+                      <div className="p-2 border-b border-slate-800">
+                        <p className="text-[10px] text-slate-600 uppercase tracking-wider px-2 py-1">Test Cases</p>
+                        <button
+                          onClick={() => { exportTestCasesCSV(exportData); setExportMenuOpen(false) }}
+                          className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 transition text-left"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-emerald-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                            <FileSpreadsheet className="w-4 h-4 text-emerald-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white">Export CSV</p>
+                            <p className="text-xs text-slate-500">All test cases with full details</p>
+                          </div>
+                        </button>
+                        <button
+                          onClick={() => { exportTestCasesTemplate(exportData); setExportMenuOpen(false) }}
+                          className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 transition text-left"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-blue-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                            <FileSpreadsheet className="w-4 h-4 text-blue-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white">Execution Template</p>
+                            <p className="text-xs text-slate-500">CSV with blank Actual Result & Status columns</p>
+                          </div>
+                        </button>
+                      </div>
+
+                      {/* PDF Report */}
+                      <div className="p-2">
+                        <p className="text-[10px] text-slate-600 uppercase tracking-wider px-2 py-1">Full Report</p>
+                        <button
+                          onClick={handleGeneratePDF}
+                          className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-slate-800 transition text-left"
+                        >
+                          <div className="w-8 h-8 rounded-lg bg-rose-500/15 flex items-center justify-center shrink-0 mt-0.5">
+                            <FileText className="w-4 h-4 text-rose-400" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-white">Generate PDF Report</p>
+                            <p className="text-xs text-slate-500">Features · Stories · Test Cases · RTM · Analytics</p>
+                          </div>
+                        </button>
+                      </div>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Progress bar */}
