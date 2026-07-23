@@ -47,14 +47,25 @@ interface Conversation {
   online?: boolean
 }
 
+interface RoomInfo {
+  id: string
+  type: string
+  name: string
+  memberIds: string[]
+}
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 const SOCKET_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'
-const CONV_KEY = 'chat_conversations_v2'
+const CONV_KEY = 'chat_conversations_v3'
 const ACTIVE_KEY = 'chat_active_id_v1'
 const UNREAD_KEY = 'chat_has_unread'
 const GENERAL_ID = 'c-general'
 
-// ── Persistence ───────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function dmRoomId(a: string, b: string): string {
+  return `dm-${[a, b].sort().join('-')}`
+}
+
 function loadConversations(): Conversation[] {
   if (typeof window === 'undefined') return []
   try {
@@ -80,7 +91,6 @@ function getMyIdentity(): { id: string; name: string } {
   } catch { return { id: 'me', name: 'You' } }
 }
 
-// ── Converters ────────────────────────────────────────────────────────────────
 function toMember(m: TeamMemberRecord): ChatMember {
   return {
     id: String(m.id),
@@ -90,7 +100,6 @@ function toMember(m: TeamMemberRecord): ChatMember {
   }
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 const initials = (name: string) =>
   name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()
 
@@ -102,6 +111,22 @@ const avatarColor = (name: string) => {
   return colors[name.charCodeAt(0) % colors.length]
 }
 
+function ensureGeneral(convs: Conversation[], members: ChatMember[]): Conversation[] {
+  if (convs.some((c) => c.id === GENERAL_ID)) {
+    return convs.map((c) => c.id === GENERAL_ID ? { ...c, members } : c)
+  }
+  const general: Conversation = {
+    id: GENERAL_ID, type: 'group', name: 'General', members,
+    unread: 0, lastMessage: 'Welcome to the team chat!', lastTime: 'now',
+    messages: [{
+      id: 'sys-0', roomId: GENERAL_ID, senderId: 'system', senderName: 'System',
+      text: 'Welcome to General — your team hub for all updates.', time: 'now', date: 'Today', isOwn: false,
+    }],
+  }
+  return [general, ...convs]
+}
+
+// ── Sub-components ────────────────────────────────────────────────────────────
 function Avatar({ name, size = 'md', online }: { name: string; size?: 'sm' | 'md' | 'lg'; online?: boolean }) {
   const sz = size === 'sm' ? 'w-8 h-8 text-xs' : size === 'lg' ? 'w-12 h-12 text-base' : 'w-10 h-10 text-sm'
   return (
@@ -116,7 +141,6 @@ function Avatar({ name, size = 'md', online }: { name: string; size?: 'sm' | 'md
   )
 }
 
-// ── Modal Shell ───────────────────────────────────────────────────────────────
 function ModalShell({ title, icon, onClose, children }: { title: string; icon: React.ReactNode; onClose: () => void; children: React.ReactNode }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/70 backdrop-blur-sm">
@@ -134,7 +158,6 @@ function ModalShell({ title, icon, onClose, children }: { title: string; icon: R
   )
 }
 
-// ── Member Picker ─────────────────────────────────────────────────────────────
 function MemberPicker({ members, selected, onToggle, loading, label }: {
   members: ChatMember[]; selected: string[]; onToggle: (id: string) => void; loading: boolean; label: string
 }) {
@@ -180,25 +203,30 @@ function MemberPicker({ members, selected, onToggle, loading, label }: {
   )
 }
 
-// ── New Group Chat Modal ───────────────────────────────────────────────────────
 function NewGroupModal({ members, loadingMembers, onClose, onCreated }: {
-  members: ChatMember[]; loadingMembers: boolean; onClose: () => void; onCreated: (conv: Conversation) => void
+  members: ChatMember[]; loadingMembers: boolean; onClose: () => void
+  onCreated: (conv: Conversation, roomInfo: RoomInfo) => void
 }) {
   const [groupName, setGroupName] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [error, setError] = useState('')
   const toggle = (id: string) => setSelected((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
+  const { id: myId, name: myName } = getMyIdentity()
 
   const handleCreate = () => {
     if (!groupName.trim()) { setError('Group name is required'); return }
     if (selected.length < 1) { setError('Select at least 1 member'); return }
     const chosenMembers = members.filter((m) => selected.includes(m.id))
+    const roomId = `grp-${Date.now()}`
+    const allMemberIds = [...new Set([myId, ...selected])]
     const conv: Conversation = {
-      id: `grp-${Date.now()}`, type: 'group', name: groupName.trim(), members: chosenMembers,
+      id: roomId, type: 'group', name: groupName.trim(), members: chosenMembers,
       unread: 0, lastMessage: 'Group created', lastTime: 'now',
-      messages: [{ id: 'sys', roomId: `grp-${Date.now()}`, senderId: 'system', senderName: 'System', text: `Group "${groupName.trim()}" was created.`, time: 'now', date: 'Today', isOwn: false }],
+      messages: [{ id: 'sys', roomId, senderId: 'system', senderName: 'System',
+        text: `${myName} created group "${groupName.trim()}".`, time: 'now', date: 'Today', isOwn: false }],
     }
-    onCreated(conv)
+    const roomInfo: RoomInfo = { id: roomId, type: 'group', name: groupName.trim(), memberIds: allMemberIds }
+    onCreated(conv, roomInfo)
   }
 
   return (
@@ -221,26 +249,31 @@ function NewGroupModal({ members, loadingMembers, onClose, onCreated }: {
   )
 }
 
-// ── New Project Chat Modal ────────────────────────────────────────────────────
 function NewProjectChatModal({ members, loadingMembers, onClose, onCreated }: {
-  members: ChatMember[]; loadingMembers: boolean; onClose: () => void; onCreated: (conv: Conversation) => void
+  members: ChatMember[]; loadingMembers: boolean; onClose: () => void
+  onCreated: (conv: Conversation, roomInfo: RoomInfo) => void
 }) {
   const { projects } = useProjectContext()
   const [selectedProject, setSelectedProject] = useState('')
   const [selectedMembers, setSelectedMembers] = useState<string[]>([])
   const [error, setError] = useState('')
   const toggle = (id: string) => setSelectedMembers((prev) => prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id])
+  const { id: myId, name: myName } = getMyIdentity()
 
   const handleCreate = () => {
     if (!selectedProject) { setError('Please select a project'); return }
     if (selectedMembers.length === 0) { setError('Select at least 1 member'); return }
     const chosenMembers = members.filter((m) => selectedMembers.includes(m.id))
+    const roomId = `proj-${selectedProject.replace(/\s+/g, '-').toLowerCase()}`
+    const allMemberIds = [...new Set([myId, ...selectedMembers])]
     const conv: Conversation = {
-      id: `proj-${Date.now()}`, type: 'project', name: selectedProject, projectName: selectedProject,
+      id: roomId, type: 'project', name: selectedProject, projectName: selectedProject,
       members: chosenMembers, unread: 0, lastMessage: 'Project chat created', lastTime: 'now',
-      messages: [{ id: 'sys', roomId: `proj-${Date.now()}`, senderId: 'system', senderName: 'System', text: `Project chat for "${selectedProject}" was created.`, time: 'now', date: 'Today', isOwn: false }],
+      messages: [{ id: 'sys', roomId, senderId: 'system', senderName: 'System',
+        text: `${myName} created a chat for project "${selectedProject}".`, time: 'now', date: 'Today', isOwn: false }],
     }
-    onCreated(conv)
+    const roomInfo: RoomInfo = { id: roomId, type: 'project', name: selectedProject, memberIds: allMemberIds }
+    onCreated(conv, roomInfo)
   }
 
   return (
@@ -267,18 +300,20 @@ function NewProjectChatModal({ members, loadingMembers, onClose, onCreated }: {
   )
 }
 
-// ── New DM Modal ───────────────────────────────────────────────────────────────
 function NewDMModal({ members, loadingMembers, existingDMs, onClose, onCreated }: {
-  members: ChatMember[]; loadingMembers: boolean; existingDMs: string[]; onClose: () => void; onCreated: (conv: Conversation) => void
+  members: ChatMember[]; loadingMembers: boolean; existingDMs: string[]; onClose: () => void
+  onCreated: (conv: Conversation) => void
 }) {
   const [search, setSearch] = useState('')
+  const { id: myId } = getMyIdentity()
   const available = members.filter(
-    (m) => !existingDMs.includes(m.name) && m.name.toLowerCase().includes(search.toLowerCase())
+    (m) => !existingDMs.includes(m.id) && m.name.toLowerCase().includes(search.toLowerCase())
   )
 
   const handleSelect = (member: ChatMember) => {
+    const roomId = dmRoomId(myId, member.id)
     const conv: Conversation = {
-      id: `dm-${Date.now()}`, type: 'direct', name: member.name, online: member.online,
+      id: roomId, type: 'direct', name: member.name, online: member.online,
       members: [member], unread: 0, lastMessage: 'No messages yet', lastTime: 'now', messages: [],
     }
     onCreated(conv)
@@ -316,7 +351,6 @@ function NewDMModal({ members, loadingMembers, existingDMs, onClose, onCreated }
   )
 }
 
-// ── Conversation List Item ────────────────────────────────────────────────────
 function ConvItem({ conv, active, onClick }: { conv: Conversation; active: boolean; onClick: () => void }) {
   const isGroup = conv.type !== 'direct'
   return (
@@ -330,7 +364,6 @@ function ConvItem({ conv, active, onClick }: { conv: Conversation; active: boole
         ) : (
           <Avatar name={conv.name} size="md" online={conv.online} />
         )}
-        {/* Unread dot on avatar */}
         {conv.unread > 0 && !active && (
           <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-rose-500 border-2 border-slate-950" />
         )}
@@ -355,7 +388,6 @@ function ConvItem({ conv, active, onClick }: { conv: Conversation; active: boole
   )
 }
 
-// ── Chat Window ───────────────────────────────────────────────────────────────
 function ChatWindow({ conv, onSend, onBack, connected }: {
   conv: Conversation; onSend: (text: string) => void; onBack: () => void; connected: boolean
 }) {
@@ -380,7 +412,6 @@ function ChatWindow({ conv, onSend, onBack, connected }: {
   const onlineCount = conv.members.filter((m) => m.online).length
   const isGroup = conv.type !== 'direct'
 
-  // Group messages by date
   const grouped: { date: string; messages: Message[] }[] = []
   for (const msg of conv.messages) {
     const last = grouped[grouped.length - 1]
@@ -390,7 +421,6 @@ function ChatWindow({ conv, onSend, onBack, connected }: {
 
   return (
     <div className="flex flex-col h-full">
-      {/* Header */}
       <div className="flex items-center gap-3 px-5 py-3.5 border-b border-slate-800 bg-slate-950 shrink-0">
         <button onClick={onBack} className="lg:hidden text-slate-400 hover:text-white transition-colors mr-1">
           <ArrowLeft className="w-5 h-5" />
@@ -415,12 +445,11 @@ function ChatWindow({ conv, onSend, onBack, connected }: {
           )}
         </div>
         <div className="flex items-center gap-1">
-          {/* Connection indicator */}
           <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-900 border border-slate-800 mr-1">
             <span className={`w-1.5 h-1.5 rounded-full ${connected ? 'bg-emerald-500' : 'bg-rose-500 animate-pulse'}`} />
             <span className="text-[10px] text-slate-400">{connected ? 'Live' : 'Connecting…'}</span>
           </div>
-          <button className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Info">
+          <button className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
             <Info className="w-4 h-4" />
           </button>
           <button className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
@@ -429,7 +458,6 @@ function ChatWindow({ conv, onSend, onBack, connected }: {
         </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto px-5 py-4 space-y-6">
         {conv.messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
@@ -489,7 +517,6 @@ function ChatWindow({ conv, onSend, onBack, connected }: {
         <div ref={bottomRef} />
       </div>
 
-      {/* Input */}
       <div className="shrink-0 px-5 py-4 border-t border-slate-800 bg-slate-950">
         <div className="flex items-end gap-3">
           <button className="p-2 text-slate-400 hover:text-white transition-colors shrink-0 mb-0.5">
@@ -524,24 +551,9 @@ function ChatWindow({ conv, onSend, onBack, connected }: {
   )
 }
 
-// ── Main Page ─────────────────────────────────────────────────────────────────
+// ── Main Page ──────────────────────────────────────────────────────────────────
 type ModalType = 'group' | 'project' | 'dm' | null
 type FilterTab = 'all' | 'groups' | 'direct'
-
-function ensureGeneral(convs: Conversation[], members: ChatMember[]): Conversation[] {
-  if (convs.some((c) => c.id === GENERAL_ID)) {
-    return convs.map((c) => c.id === GENERAL_ID ? { ...c, members } : c)
-  }
-  const general: Conversation = {
-    id: GENERAL_ID, type: 'group', name: 'General', members,
-    unread: 0, lastMessage: 'Welcome to the team chat!', lastTime: 'now',
-    messages: [{
-      id: 'sys-0', roomId: GENERAL_ID, senderId: 'system', senderName: 'System',
-      text: 'Welcome to General — your team hub for all updates.', time: 'now', date: 'Today', isOwn: false,
-    }],
-  }
-  return [general, ...convs]
-}
 
 export default function ChatPage() {
   const router = useRouter()
@@ -553,59 +565,106 @@ export default function ChatPage() {
   const [filter, setFilter] = useState<FilterTab>('all')
   const [search, setSearch] = useState('')
   const [showList, setShowList] = useState(true)
-
   const [teamMembers, setTeamMembers] = useState<ChatMember[]>([])
   const [loadingMembers, setLoadingMembers] = useState(true)
 
-  // Socket state
   const socketRef = useRef<Socket | null>(null)
   const [connected, setConnected] = useState(false)
   const activeIdRef = useRef<string | null>(activeId)
+  const teamMembersRef = useRef<ChatMember[]>([])
 
-  // Keep activeIdRef in sync
   useEffect(() => { activeIdRef.current = activeId }, [activeId])
+  useEffect(() => { teamMembersRef.current = teamMembers }, [teamMembers])
 
-  // Redirect if not logged in
   useEffect(() => {
     if (!localStorage.getItem('authToken')) router.push('/login')
   }, [router])
 
-  // Clear unread flag when on chat page
   useEffect(() => {
     localStorage.removeItem(UNREAD_KEY)
     window.dispatchEvent(new Event('chatUnreadChanged'))
   }, [])
 
-  // Persist conversations
   useEffect(() => { saveConversations(conversations) }, [conversations])
 
-  // Persist active id
   useEffect(() => {
     if (activeId) localStorage.setItem(ACTIVE_KEY, activeId)
   }, [activeId])
 
-  // ── Socket connection ─────────────────────────────────────────────────────
+  // ── Socket setup ──────────────────────────────────────────────────────────
   useEffect(() => {
+    const { id: myId, name: myName } = getMyIdentity()
+
     const socket = io(`${SOCKET_URL}/chat`, {
       transports: ['websocket', 'polling'],
-      auth: { token: localStorage.getItem('authToken') },
-      reconnectionAttempts: 5,
+      auth: { token: localStorage.getItem('authToken'), userId: myId, userName: myName },
+      reconnectionAttempts: 10,
       reconnectionDelay: 2000,
     })
     socketRef.current = socket
 
     socket.on('connect', () => {
       setConnected(true)
-      // Re-join current room after reconnect
+      // Re-join current room
       if (activeIdRef.current) socket.emit('join_room', { roomId: activeIdRef.current })
+      // Auto-join DM rooms with all known team members
+      const members = teamMembersRef.current
+      if (members.length > 0) {
+        socket.emit('join_dms', { myId, memberIds: members.map((m) => m.id) })
+      }
+      // Fetch & join persisted group/project rooms
+      socket.emit('join_group_rooms', { userId: myId })
     })
 
     socket.on('disconnect', () => setConnected(false))
 
-    // Load message history for a room
+    // Receive list of persisted group/project rooms on connect
+    socket.on('group_rooms', (rooms: RoomInfo[]) => {
+      setConversations((prev) => {
+        let next = [...prev]
+        for (const room of rooms) {
+          if (next.some((c) => c.id === room.id)) continue
+          const roomMembers = teamMembersRef.current.filter((m) => room.memberIds.includes(m.id))
+          next.push({
+            id: room.id,
+            type: room.type as ChatType,
+            name: room.name,
+            members: roomMembers,
+            messages: [],
+            unread: 0,
+            lastMessage: 'No messages yet',
+            lastTime: '',
+          })
+        }
+        return next
+      })
+    })
+
+    // A new group/project room was created by someone else; join it
+    socket.on('new_room', (room: RoomInfo) => {
+      setConversations((prev) => {
+        if (prev.some((c) => c.id === room.id)) return prev
+        const roomMembers = teamMembersRef.current.filter((m) => room.memberIds.includes(m.id))
+        return [
+          {
+            id: room.id,
+            type: room.type as ChatType,
+            name: room.name,
+            members: roomMembers,
+            messages: [],
+            unread: 0,
+            lastMessage: `Chat created`,
+            lastTime: 'now',
+          },
+          ...prev,
+        ]
+      })
+    })
+
+    // Load message history when joining a room
     socket.on('room_history', (history: Omit<Message, 'isOwn'>[]) => {
-      const { id: myId } = getMyIdentity()
-      const msgs: Message[] = history.map((m) => ({ ...m, isOwn: m.senderId === myId }))
+      const { id: currentMyId } = getMyIdentity()
+      const msgs: Message[] = history.map((m) => ({ ...m, isOwn: m.senderId === currentMyId }))
       setConversations((prev) => prev.map((c) =>
         c.id === activeIdRef.current
           ? { ...c, messages: msgs, lastMessage: msgs[msgs.length - 1]?.text || c.lastMessage }
@@ -615,23 +674,40 @@ export default function ChatPage() {
 
     // New real-time message
     socket.on('new_message', (msg: Omit<Message, 'isOwn'>) => {
-      const { id: myId } = getMyIdentity()
-      const fullMsg: Message = { ...msg, isOwn: msg.senderId === myId }
+      const { id: currentMyId } = getMyIdentity()
+      const fullMsg: Message = { ...msg, isOwn: msg.senderId === currentMyId }
       const now = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 
-      setConversations((prev) => prev.map((c) => {
-        if (c.id !== msg.roomId) return c
-        const isActive = activeIdRef.current === msg.roomId
-        return {
-          ...c,
-          messages: [...c.messages, fullMsg],
-          lastMessage: msg.text,
-          lastTime: now,
-          unread: isActive ? 0 : c.unread + 1,
+      setConversations((prev) => {
+        const existingConv = prev.find((c) => c.id === msg.roomId)
+        if (!existingConv) {
+          // Auto-create conversation for this room when first message arrives
+          const isDm = msg.roomId.startsWith('dm-')
+          const newConv: Conversation = {
+            id: msg.roomId,
+            type: isDm ? 'direct' : 'group',
+            name: isDm ? msg.senderName : msg.roomId,
+            members: [],
+            messages: [fullMsg],
+            unread: 1,
+            lastMessage: msg.text,
+            lastTime: now,
+          }
+          return [newConv, ...prev]
         }
-      }))
+        return prev.map((c) => {
+          if (c.id !== msg.roomId) return c
+          const isActive = activeIdRef.current === msg.roomId
+          return {
+            ...c,
+            messages: [...c.messages, fullMsg],
+            lastMessage: msg.text,
+            lastTime: now,
+            unread: isActive ? 0 : c.unread + 1,
+          }
+        })
+      })
 
-      // Set sidebar unread flag if message is NOT in active conversation
       if (activeIdRef.current !== msg.roomId && msg.senderId !== myId) {
         localStorage.setItem(UNREAD_KEY, 'true')
         window.dispatchEvent(new Event('chatUnreadChanged'))
@@ -644,25 +720,34 @@ export default function ChatPage() {
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Join room when active conversation changes ────────────────────────────
+  // Join room whenever active conversation changes
   useEffect(() => {
     if (!activeId || !socketRef.current) return
     socketRef.current.emit('join_room', { roomId: activeId })
   }, [activeId])
 
-  // ── Load team members ─────────────────────────────────────────────────────
+  // Load team members
   const loadMembers = useCallback(async () => {
     setLoadingMembers(true)
     try {
       const data = await teamService.getDashboard()
       const members = data.members.map(toMember)
       setTeamMembers(members)
+      teamMembersRef.current = members
+
       setConversations((prev) => {
         const updated = ensureGeneral(prev, members)
         saveConversations(updated)
         return updated
       })
       setActiveId((prev) => prev ?? GENERAL_ID)
+
+      // Auto-join DM rooms for all team members once we know who they are
+      if (socketRef.current?.connected) {
+        const { id: myId } = getMyIdentity()
+        socketRef.current.emit('join_dms', { myId, memberIds: members.map((m) => m.id) })
+        socketRef.current.emit('join_group_rooms', { userId: myId })
+      }
     } catch {
       setConversations((prev) => {
         if (prev.some((c) => c.id === GENERAL_ID)) return prev
@@ -678,7 +763,7 @@ export default function ChatPage() {
 
   useEffect(() => { void loadMembers() }, [loadMembers])
 
-  // ── Handlers ──────────────────────────────────────────────────────────────
+  // ── Handlers ─────────────────────────────────────────────────────────────
   const activeConv = conversations.find((c) => c.id === activeId) ?? null
 
   const filtered = conversations.filter((c) => {
@@ -690,8 +775,6 @@ export default function ChatPage() {
     setConversations((prev) => prev.map((c) => c.id === id ? { ...c, unread: 0 } : c))
     setActiveId(id)
     setShowList(false)
-
-    // Clear global unread flag if no more unreads
     setTimeout(() => {
       setConversations((prev) => {
         const totalUnread = prev.reduce((sum, c) => sum + (c.id !== id ? c.unread : 0), 0)
@@ -704,11 +787,22 @@ export default function ChatPage() {
     }, 0)
   }
 
-  const handleCreated = (conv: Conversation) => {
-    setConversations((prev) => [conv, ...prev])
+  // For DM: no backend call needed (deterministic room ID)
+  const handleDMCreated = (conv: Conversation) => {
+    setConversations((prev) => prev.some((c) => c.id === conv.id) ? prev : [conv, ...prev])
     setActiveId(conv.id)
     setModal(null)
     setShowList(false)
+  }
+
+  // For group/project: persist to backend so members can discover it
+  const handleGroupCreated = (conv: Conversation, roomInfo: RoomInfo) => {
+    setConversations((prev) => prev.some((c) => c.id === conv.id) ? prev : [conv, ...prev])
+    setActiveId(conv.id)
+    setModal(null)
+    setShowList(false)
+    // Tell the backend to persist and notify members
+    socketRef.current?.emit('create_group_room', roomInfo)
   }
 
   const handleSend = (text: string) => {
@@ -722,14 +816,14 @@ export default function ChatPage() {
     })
   }
 
-  const existingDMs = conversations.filter((c) => c.type === 'direct').map((c) => c.name)
+  // Track existing DM partner IDs (not names) to prevent duplicates
+  const existingDMIds = conversations.filter((c) => c.type === 'direct').flatMap((c) => c.members.map((m) => m.id))
   const totalUnread = conversations.reduce((sum, c) => sum + c.unread, 0)
   const onlineCount = teamMembers.filter((m) => m.online).length
 
   return (
     <Layout>
       <div className="h-[calc(100vh-9rem)] flex flex-col">
-        {/* Page Header */}
         <div className="flex items-center justify-between mb-5 shrink-0">
           <div>
             <p className="text-xs font-medium text-primary-400 mb-1">Workspace</p>
@@ -756,7 +850,6 @@ export default function ChatPage() {
           </div>
         </div>
 
-        {/* Chat Layout */}
         <div className="flex-1 min-h-0 flex rounded-2xl border border-slate-800 overflow-hidden bg-slate-950">
           {/* Sidebar */}
           <div className={`w-full lg:w-80 xl:w-96 shrink-0 flex flex-col border-r border-slate-800 bg-slate-950 ${!showList ? 'hidden lg:flex' : 'flex'}`}>
@@ -842,9 +935,18 @@ export default function ChatPage() {
         </div>
       </div>
 
-      {modal === 'group' && <NewGroupModal members={teamMembers} loadingMembers={loadingMembers} onClose={() => setModal(null)} onCreated={handleCreated} />}
-      {modal === 'project' && <NewProjectChatModal members={teamMembers} loadingMembers={loadingMembers} onClose={() => setModal(null)} onCreated={handleCreated} />}
-      {modal === 'dm' && <NewDMModal members={teamMembers} loadingMembers={loadingMembers} existingDMs={existingDMs} onClose={() => setModal(null)} onCreated={handleCreated} />}
+      {modal === 'group' && (
+        <NewGroupModal members={teamMembers} loadingMembers={loadingMembers}
+          onClose={() => setModal(null)} onCreated={handleGroupCreated} />
+      )}
+      {modal === 'project' && (
+        <NewProjectChatModal members={teamMembers} loadingMembers={loadingMembers}
+          onClose={() => setModal(null)} onCreated={handleGroupCreated} />
+      )}
+      {modal === 'dm' && (
+        <NewDMModal members={teamMembers} loadingMembers={loadingMembers} existingDMs={existingDMIds}
+          onClose={() => setModal(null)} onCreated={handleDMCreated} />
+      )}
     </Layout>
   )
 }
