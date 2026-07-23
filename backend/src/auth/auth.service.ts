@@ -287,16 +287,18 @@ export class AuthService {
       throw new BadRequestException('User not found');
     }
 
+    const base = {
+      id: user.id,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      companyName: user.companyName,
+      jobTitle: user.jobTitle,
+    };
+
     // Company admin — full access regardless of TeamMember record
     if (user.role === 'admin') {
-      return {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: MemberRole.CompanyAdmin,
-        modules: [...ALL_MODULES],
-      };
+      return { ...base, role: MemberRole.CompanyAdmin, modules: [...ALL_MODULES] };
     }
 
     // Look up their TeamMember record to get assigned role + modules
@@ -304,14 +306,7 @@ export class AuthService {
 
     // No TeamMember record means this user registered themselves — treat as company owner
     if (!member) {
-      return {
-        id: user.id,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        role: MemberRole.CompanyAdmin,
-        modules: [...ALL_MODULES],
-      };
+      return { ...base, role: MemberRole.CompanyAdmin, modules: [...ALL_MODULES] };
     }
 
     const memberRole: MemberRole = member.role ?? MemberRole.Viewer;
@@ -319,14 +314,18 @@ export class AuthService {
       ? member.modules
       : DEFAULT_MODULES_BY_ROLE[memberRole];
 
-    return {
-      id: user.id,
-      email: user.email,
-      firstName: user.firstName,
-      lastName: user.lastName,
-      role: memberRole,
-      modules,
-    };
+    return { ...base, role: memberRole, modules };
+  }
+
+  async updateProfile(userId: number, dto: { firstName?: string; lastName?: string; companyName?: string; jobTitle?: string }) {
+    const user = await this.userRepository.findOne({ where: { id: userId } });
+    if (!user) throw new BadRequestException('User not found');
+    if (dto.firstName !== undefined) user.firstName = dto.firstName.trim();
+    if (dto.lastName !== undefined) user.lastName = dto.lastName.trim();
+    if (dto.companyName !== undefined) user.companyName = dto.companyName.trim() || undefined;
+    if (dto.jobTitle !== undefined) user.jobTitle = dto.jobTitle.trim() || undefined;
+    await this.userRepository.save(user);
+    return { id: user.id, email: user.email, firstName: user.firstName, lastName: user.lastName, companyName: user.companyName, jobTitle: user.jobTitle };
   }
 
   /**

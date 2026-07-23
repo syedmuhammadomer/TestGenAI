@@ -33,6 +33,8 @@ export interface User {
   team?: string
   assignedProject?: string | null
   createdAt?: string
+  companyName?: string
+  jobTitle?: string
 }
 
 // Auth types

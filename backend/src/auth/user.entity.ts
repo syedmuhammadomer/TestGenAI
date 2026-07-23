@@ -23,6 +23,12 @@ export class User {
   @Column({ type: 'varchar', default: 'member' })
   role: 'admin' | 'member';
 
+  @Column({ nullable: true })
+  companyName?: string;
+
+  @Column({ nullable: true })
+  jobTitle?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 

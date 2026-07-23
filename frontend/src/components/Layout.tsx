@@ -319,25 +319,57 @@ export default function Layout({ children }: LayoutProps) {
                 </h2>
               </div>
 
-              {/* Theme toggle */}
-              <button
-                onClick={toggleTheme}
-                className={`
-                  relative rounded-xl p-2.5 transition-all duration-300
-                  ${isDark
-                    ? 'text-zinc-400 hover:bg-zinc-800 hover:text-primary-400'
-                    : 'text-zinc-500 hover:bg-zinc-100 hover:text-primary-600'}
-                `}
-                aria-label="Toggle theme"
-                title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
-              >
-                <div className={`transition-all duration-300 ${isDark ? 'rotate-0' : 'rotate-180'}`}>
-                  {isDark
-                    ? <Sun className="w-5 h-5" />
-                    : <Moon className="w-5 h-5" />
-                  }
-                </div>
-              </button>
+              <div className="flex items-center gap-3">
+                {/* Company name + avatar */}
+                {user && (
+                  <a href="/settings" className="flex items-center gap-2.5 group">
+                    <div className={`flex items-center gap-2 px-3 py-1.5 rounded-xl border transition-colors ${
+                      isDark ? 'border-zinc-800 bg-zinc-900 hover:border-zinc-700' : 'border-zinc-200 bg-zinc-50 hover:border-zinc-300'
+                    }`}>
+                      {/* Avatar with initials */}
+                      <div className="w-7 h-7 rounded-lg bg-primary-600/20 border border-primary-600/30 flex items-center justify-center text-xs font-bold text-primary-300 shrink-0">
+                        {[user.firstName?.[0], user.lastName?.[0]].filter(Boolean).join('').toUpperCase() || <User className="w-3.5 h-3.5" />}
+                      </div>
+                      <div className="hidden sm:block text-right min-w-0">
+                        {(user as any).companyName ? (
+                          <>
+                            <p className={`text-xs font-semibold truncate max-w-[120px] ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                              {(user as any).companyName}
+                            </p>
+                            <p className={`text-[10px] truncate max-w-[120px] ${isDark ? 'text-zinc-500' : 'text-zinc-400'}`}>
+                              {user.firstName} {user.lastName}
+                            </p>
+                          </>
+                        ) : (
+                          <p className={`text-xs font-semibold truncate max-w-[120px] ${isDark ? 'text-white' : 'text-zinc-900'}`}>
+                            {user.firstName} {user.lastName}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </a>
+                )}
+
+                {/* Theme toggle */}
+                <button
+                  onClick={toggleTheme}
+                  className={`
+                    relative rounded-xl p-2.5 transition-all duration-300
+                    ${isDark
+                      ? 'text-zinc-400 hover:bg-zinc-800 hover:text-primary-400'
+                      : 'text-zinc-500 hover:bg-zinc-100 hover:text-primary-600'}
+                  `}
+                  aria-label="Toggle theme"
+                  title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
+                >
+                  <div className={`transition-all duration-300 ${isDark ? 'rotate-0' : 'rotate-180'}`}>
+                    {isDark
+                      ? <Sun className="w-5 h-5" />
+                      : <Moon className="w-5 h-5" />
+                    }
+                  </div>
+                </button>
+              </div>
             </div>
           </div>
         </header>

@@ -158,6 +158,17 @@ export class AuthController {
     return this.authService.getMe(req.user!.id);
   }
 
+  @Patch('profile')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('access-token')
+  @ApiOperation({ summary: 'Update the current user profile' })
+  async updateProfile(
+    @Req() req: AuthenticatedRequest,
+    @Body() body: { firstName?: string; lastName?: string; companyName?: string; jobTitle?: string },
+  ) {
+    return this.authService.updateProfile(req.user!.id, body);
+  }
+
   @Patch('change-password')
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('access-token')

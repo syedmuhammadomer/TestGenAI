@@ -8,6 +8,15 @@ export type ManagedUser = {
   email: string
   role: 'admin' | 'member'
   verified: boolean
+  companyName?: string
+  jobTitle?: string
+}
+
+export type UpdateProfilePayload = {
+  firstName?: string
+  lastName?: string
+  companyName?: string
+  jobTitle?: string
 }
 
 const authHeaders = () => {
@@ -28,6 +37,28 @@ export const settingsService = {
   async listUsers(): Promise<ManagedUser[]> {
     try {
       const response = await axios.get(`${config.apiBaseUrl}/auth/users`, { headers: authHeaders() })
+      return response.data
+    } catch (error) {
+      throw new Error(handleApiError(error))
+    }
+  },
+
+  async updateProfile(payload: UpdateProfilePayload): Promise<ManagedUser> {
+    try {
+      const response = await axios.patch(`${config.apiBaseUrl}/auth/profile`, payload, { headers: authHeaders() })
+      return response.data
+    } catch (error) {
+      throw new Error(handleApiError(error))
+    }
+  },
+
+  async changePassword(currentPassword: string, newPassword: string): Promise<{ message: string }> {
+    try {
+      const response = await axios.patch(
+        `${config.apiBaseUrl}/auth/change-password`,
+        { currentPassword, newPassword },
+        { headers: authHeaders() }
+      )
       return response.data
     } catch (error) {
       throw new Error(handleApiError(error))
