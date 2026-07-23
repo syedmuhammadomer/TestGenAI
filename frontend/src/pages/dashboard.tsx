@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import axios from 'axios'
 import { useRouter } from 'next/router'
+import Link from 'next/link'
 import {
   FileText,
   FolderOpen, Sparkles, TestTube, Users,
@@ -684,15 +685,15 @@ export default function Dashboard() {
               <CalendarDays className="w-5 h-5 text-primary-400" />
               <h3 className="text-lg font-semibold text-white">Upcoming Sprint Meetings</h3>
             </div>
-            <a href="/calendar" className="flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300 transition-colors">
+            <Link href="/calendar" className="flex items-center gap-1 text-xs text-primary-400 hover:text-primary-300 transition-colors">
               View Calendar <ArrowUpRight className="w-3.5 h-3.5" />
-            </a>
+            </Link>
           </div>
           {upcomingMeetings.length === 0 ? (
             <div className="text-center py-8">
               <CalendarDays className="w-10 h-10 text-slate-700 mx-auto mb-3" />
               <p className="text-sm text-slate-500">No upcoming meetings scheduled</p>
-              <a href="/calendar" className="mt-2 inline-block text-xs text-primary-400 hover:underline">Open Calendar</a>
+              <Link href="/calendar" className="mt-2 inline-block text-xs text-primary-400 hover:underline">Open Calendar</Link>
             </div>
           ) : (
             <div className="space-y-3">
