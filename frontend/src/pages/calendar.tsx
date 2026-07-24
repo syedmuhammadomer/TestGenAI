@@ -7,6 +7,7 @@ import {
   ChevronLeft, ChevronRight, Clock, ExternalLink,
   MapPin, Plus, Trash2, Users, Video, X, Edit2, Star,
   AlertCircle, Check, RefreshCw, PanelLeft, ChevronDown,
+  Calendar, Bell,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -921,9 +922,6 @@ export default function CalendarPage() {
       </div>
     )
   }
-
-  const userData = typeof window !== 'undefined' ? (() => { try { return JSON.parse(localStorage.getItem('userData') ?? '{}') } catch { return {} } })() : {}
-  const userInitial = ((userData.firstName?.[0] ?? '') + (userData.lastName?.[0] ?? '')).toUpperCase() || '?'
 
   return (
     <Layout>
