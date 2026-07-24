@@ -115,6 +115,11 @@ export default function Dashboard() {
 
   // New Project Modal State
   const [isNewProjectModalOpen, setIsNewProjectModalOpen] = useState(false)
+
+  useEffect(() => {
+    document.body.style.overflow = isNewProjectModalOpen ? 'hidden' : ''
+    return () => { document.body.style.overflow = '' }
+  }, [isNewProjectModalOpen])
   const [projectName, setProjectName] = useState('')
   const [srsFile, setSrsFile] = useState<File | null>(null)
   const [isSubmittingProject, setIsSubmittingProject] = useState(false)
