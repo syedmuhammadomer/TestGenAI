@@ -6,8 +6,8 @@ import { useRouter } from 'next/router'
 import Layout from '@/components/Layout'
 import { config } from '@/utils/config'
 import {
-  ChevronLeft, ChevronRight, Clock, Download, ExternalLink,
-  MapPin, Plus, Trash2, Users, Video, X, Edit2,
+  ChevronLeft, ChevronRight, Clock, ExternalLink,
+  MapPin, Plus, Trash2, Users, Video, X, Edit2, Star,
   AlertCircle, Check, RefreshCw, PanelLeft, ChevronDown,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -497,9 +497,10 @@ function ScheduleView({ meetings, onMeetingClick }: { meetings: Meeting[]; onMee
 }
 
 // ─── Meeting detail modal ─────────────────────────────────────────────────────
-function MeetingDetailModal({ meeting, onClose, onEdit, onDelete, canManage }: {
+function MeetingDetailModal({ meeting, onClose, onEdit, onDelete, canManage, isStarred, onToggleStar }: {
   meeting: Meeting; onClose: () => void
   onEdit: () => void; onDelete: () => void; canManage: boolean
+  isStarred: boolean; onToggleStar: () => void
 }) {
   const cfg = EVENT_TYPES[meeting.type] ?? EVENT_TYPES.custom
   const duration = Math.round((new Date(meeting.endDatetime).getTime() - new Date(meeting.startDatetime).getTime()) / 60000)
@@ -518,6 +519,13 @@ function MeetingDetailModal({ meeting, onClose, onEdit, onDelete, canManage }: {
             <h2 className="text-xl font-bold text-white leading-snug">{meeting.title}</h2>
           </div>
           <div className="flex items-center gap-1 shrink-0">
+            <button
+              onClick={onToggleStar}
+              className={`p-2 rounded-lg transition-colors ${isStarred ? 'text-amber-400 hover:bg-amber-400/10' : 'text-zinc-500 hover:bg-white/10 hover:text-amber-400'}`}
+              title={isStarred ? 'Remove from starred' : 'Star this meeting'}
+            >
+              <Star className={`w-4 h-4 ${isStarred ? 'fill-amber-400' : ''}`} />
+            </button>
             {canManage && (
               <>
                 <button onClick={onEdit} className="p-2 rounded-lg text-zinc-400 hover:bg-white/10 hover:text-white transition-colors"><Edit2 className="w-4 h-4" /></button>
@@ -771,7 +779,20 @@ export default function CalendarPage() {
   const [leftOpen, setLeftOpen]         = useState(true)
   const [myCalOpen, setMyCalOpen]       = useState(true)
   const [starredOpen, setStarredOpen]   = useState(true)
+  const [starredMeetingIds, setStarredMeetingIds] = useState<Set<number>>(() => {
+    if (typeof window === 'undefined') return new Set()
+    try { return new Set(JSON.parse(localStorage.getItem('cal_starred') ?? '[]') as number[]) } catch { return new Set() }
+  })
   const userId = useRef<number>(0)
+
+  const toggleStar = (id: number) => {
+    setStarredMeetingIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      localStorage.setItem('cal_starred', JSON.stringify([...next]))
+      return next
+    })
+  }
 
   const canManage = ['company_admin', 'pm'].includes(userRole)
   const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
@@ -905,13 +926,12 @@ export default function CalendarPage() {
 
   const userData = typeof window !== 'undefined' ? (() => { try { return JSON.parse(localStorage.getItem('userData') ?? '{}') } catch { return {} } })() : {}
   const userInitial = ((userData.firstName?.[0] ?? '') + (userData.lastName?.[0] ?? '')).toUpperCase() || '?'
-  const userEmail = userData.email ?? ''
 
   return (
     <Layout>
       {/* Full-bleed wrapper that escapes Layout padding */}
       <div
-        className="flex flex-col -mt-4 -mx-4 sm:-mx-6 lg:-mx-8"
+        className="flex flex-col -mt-4 sm:-mt-6 lg:-mt-8 -mx-4 sm:-mx-6 lg:-mx-8"
         style={{ height: 'calc(100vh - 64px)', backgroundColor: '#0d0d0d' }}
       >
         {/* ── Top bar ── */}
@@ -942,32 +962,31 @@ export default function CalendarPage() {
           </div>
 
           {/* Date label */}
-          <h2 className="text-base font-semibold text-white flex-1 truncate">{headerLabel()}</h2>
+          <h2 className="text-base font-semibold text-white truncate">{headerLabel()}</h2>
 
-          {/* View switcher — pill style */}
-          <div className="flex items-center rounded-full border p-0.5" style={{ borderColor: '#3a3a3a', backgroundColor: '#111' }}>
-            {(['day', 'week', 'month', 'schedule'] as CalView[]).map((v) => (
-              <button
-                key={v}
-                onClick={() => setView(v)}
-                className={`px-3 py-1 rounded-full text-sm font-medium transition-all capitalize ${
-                  view === v ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'
-                }`}
-              >
-                {v}
-              </button>
-            ))}
+          {/* View switcher — centered */}
+          <div className="flex-1 flex justify-center">
+            <div className="flex items-center rounded-full border p-0.5" style={{ borderColor: '#3a3a3a', backgroundColor: '#111' }}>
+              {(['day', 'week', 'month', 'schedule'] as CalView[]).map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setView(v)}
+                  className={`px-3 py-1 rounded-full text-sm font-medium transition-all capitalize ${
+                    view === v ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'
+                  }`}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
           </div>
 
-          {/* Import + Create */}
-          <button className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-sm font-medium text-zinc-300 hover:bg-white/5 transition-colors" style={{ borderColor: '#3a3a3a' }}>
-            <Download className="w-3.5 h-3.5" /> Import
-          </button>
+          {/* Create */}
           {canManage && (
             <button
               onClick={() => openCreate()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-black transition-all hover:opacity-90"
-              style={{ backgroundColor: '#facc15' }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
+              style={{ backgroundColor: '#14b8a6' }}
             >
               <Plus className="w-3.5 h-3.5" /> Create
             </button>
@@ -996,34 +1015,33 @@ export default function CalendarPage() {
               {/* User account */}
               <div className="px-4 py-3 flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #4285F4, #34A853)', color: '#fff' }}>
+                  style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: '#fff' }}>
                   {userInitial}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-white truncate">{userData.firstName} {userData.lastName}</p>
-                  <p className="text-[11px] text-zinc-500 truncate">{userEmail}</p>
-                </div>
+                <p className="text-sm font-medium text-white truncate">{userData.firstName} {userData.lastName}</p>
               </div>
 
               <div className="mx-4 my-1 border-t" style={{ borderColor: '#2a2a2a' }} />
 
-              {/* My Calendars */}
+              {/* My Meetings */}
               <div className="px-3 py-2">
                 <button
                   onClick={() => setMyCalOpen((o) => !o)}
                   className="w-full flex items-center justify-between px-1 py-1.5 text-sm font-medium text-zinc-300 hover:text-white transition-colors"
                 >
-                  <span>My Calendars</span>
+                  <span>My Meetings</span>
                   <div className="flex items-center gap-1">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] text-black font-bold" style={{ backgroundColor: '#facc15' }}>
-                      {meetings.length > 0 ? meetings.length : ''}
-                    </span>
+                    {meetings.length > 0 && (
+                      <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] text-white font-bold" style={{ backgroundColor: '#14b8a6' }}>
+                        {meetings.length}
+                      </span>
+                    )}
                     <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform ${myCalOpen ? '' : '-rotate-90'}`} />
                   </div>
                 </button>
                 {myCalOpen && (
                   <div className="mt-1 px-1 py-2 text-xs text-zinc-600">
-                    {meetings.length === 0 ? 'No calendars yet' : (
+                    {meetings.length === 0 ? 'No meetings yet' : (
                       <div className="space-y-1">
                         {(Object.entries(EVENT_TYPES) as [EventType, { label: string; color: string }][])
                           .filter(([k]) => meetings.some((m) => m.type === k))
@@ -1044,38 +1062,39 @@ export default function CalendarPage() {
                 )}
               </div>
 
-              {/* Starred */}
+              {/* Starred Meetings */}
               <div className="px-3 py-1">
                 <button
                   onClick={() => setStarredOpen((o) => !o)}
                   className="w-full flex items-center justify-between px-1 py-1.5 text-sm font-medium text-zinc-300 hover:text-white transition-colors"
                 >
-                  <span>Starred</span>
-                  <div className="flex items-center gap-1">
-                    <span className="w-4 h-4 rounded-full flex items-center justify-center text-[10px] text-black font-bold" style={{ backgroundColor: '#facc15' }} />
-                    <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform ${starredOpen ? '' : '-rotate-90'}`} />
-                  </div>
+                  <span className="flex items-center gap-1.5">
+                    <Star className="w-3.5 h-3.5 text-amber-400" />
+                    Starred Meetings
+                  </span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform ${starredOpen ? '' : '-rotate-90'}`} />
                 </button>
-                {starredOpen && <p className="px-1 py-2 text-[11px] text-zinc-600">Star a calendar to pin it here</p>}
-              </div>
-
-              {/* Groups */}
-              <div className="px-3 py-1">
-                <div className="flex items-center justify-between px-1 py-1.5">
-                  <span className="text-sm font-medium text-zinc-300">Groups</span>
-                  <button className="p-1 rounded hover:bg-white/10 text-zinc-500 hover:text-white transition-colors">
-                    <Plus className="w-3.5 h-3.5" />
-                  </button>
-                </div>
-                <div className="px-1 py-2">
-                  <button className="flex items-center gap-2 text-[11px] text-zinc-400 hover:text-white transition-colors w-full">
-                    <div className="w-5 h-5 rounded bg-zinc-800 flex items-center justify-center shrink-0">
-                      <Users className="w-3 h-3" />
-                    </div>
-                    View Groups
-                    <ChevronRight className="w-3 h-3 ml-auto" />
-                  </button>
-                </div>
+                {starredOpen && (
+                  <div className="px-1 py-2 space-y-1">
+                    {starredMeetingIds.size === 0 ? (
+                      <p className="text-[11px] text-zinc-600">Star a meeting to pin it here</p>
+                    ) : (
+                      meetings.filter((m) => starredMeetingIds.has(m.id)).map((m) => {
+                        const cfg = EVENT_TYPES[m.type] ?? EVENT_TYPES.custom
+                        return (
+                          <button
+                            key={m.id}
+                            onClick={() => setDetailMeeting(m)}
+                            className="w-full flex items-center gap-2 text-[11px] text-zinc-400 hover:text-white transition-colors text-left"
+                          >
+                            <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: cfg.color }} />
+                            <span className="truncate">{m.title}</span>
+                          </button>
+                        )
+                      })
+                    )}
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1116,6 +1135,8 @@ export default function CalendarPage() {
           meeting={detailMeeting} canManage={canManage}
           onClose={() => setDetailMeeting(null)} onEdit={() => openEdit(detailMeeting)}
           onDelete={() => handleDelete(detailMeeting)}
+          isStarred={starredMeetingIds.has(detailMeeting.id)}
+          onToggleStar={() => toggleStar(detailMeeting.id)}
         />
       )}
     </Layout>
