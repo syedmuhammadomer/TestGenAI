@@ -1,5 +1,3 @@
-'use client'
-
 import React, { useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import Link from 'next/link'
@@ -69,12 +67,71 @@ export default function Login() {
         className="hidden lg:flex flex-col justify-between p-12 relative overflow-hidden"
         style={{ backgroundColor: '#0b1d0f' }}
       >
+        {/* 3D animation keyframes */}
+        <style>{`
+          @keyframes float3d {
+            0%,100% { transform: perspective(900px) rotateX(0deg) rotateY(0deg) translateY(0px); }
+            25%      { transform: perspective(900px) rotateX(3deg) rotateY(5deg) translateY(-10px); }
+            50%      { transform: perspective(900px) rotateX(-2deg) rotateY(-3deg) translateY(-5px); }
+            75%      { transform: perspective(900px) rotateX(4deg) rotateY(-5deg) translateY(-14px); }
+          }
+          @keyframes orbit-cw {
+            0%   { transform: perspective(550px) rotateX(70deg) rotateZ(0deg); }
+            100% { transform: perspective(550px) rotateX(70deg) rotateZ(360deg); }
+          }
+          @keyframes orbit-ccw {
+            0%   { transform: perspective(550px) rotateX(68deg) rotateZ(0deg); }
+            100% { transform: perspective(550px) rotateX(68deg) rotateZ(-360deg); }
+          }
+          @keyframes drift-a {
+            0%,100% { transform: translate3d(0px,0px,0px); opacity:.55; }
+            50%      { transform: translate3d(12px,-20px,0px); opacity:.9; }
+          }
+          @keyframes drift-b {
+            0%,100% { transform: translate3d(0px,0px,0px); opacity:.35; }
+            50%      { transform: translate3d(-14px,-18px,0px); opacity:.7; }
+          }
+          @keyframes spin-diamond {
+            0%   { transform: perspective(400px) rotateY(0deg) rotateZ(45deg); }
+            100% { transform: perspective(400px) rotateY(360deg) rotateZ(45deg); }
+          }
+          @keyframes pulse-orb {
+            0%,100% { transform: scale(1); opacity:.4; }
+            50%      { transform: scale(1.18); opacity:.75; }
+          }
+        `}</style>
+
         {/* Ambient glows */}
         <div className="pointer-events-none absolute inset-0">
           <div className="absolute top-0 left-0 w-96 h-96 rounded-full blur-3xl"
             style={{ background: 'radial-gradient(circle, rgba(20,184,166,0.07) 0%, transparent 70%)' }} />
           <div className="absolute bottom-0 right-0 w-80 h-80 rounded-full blur-3xl"
             style={{ background: 'radial-gradient(circle, rgba(16,185,129,0.05) 0%, transparent 70%)' }} />
+        </div>
+
+        {/* 3D Orbital rings */}
+        <div className="pointer-events-none absolute inset-0">
+          <div style={{ position:'absolute', top:'48%', left:'58%', transform:'translate(-50%,-52%)', width:340, height:340 }}>
+            <div style={{ width:'100%', height:'100%', border:'1.5px solid rgba(20,184,166,0.18)', borderRadius:'50%', animation:'orbit-cw 14s linear infinite', position:'relative' }}>
+              <div style={{ position:'absolute', top:-5, left:'50%', marginLeft:-5, width:10, height:10, borderRadius:'50%', background:'rgba(20,184,166,0.85)', boxShadow:'0 0 10px 2px rgba(20,184,166,0.6)' }} />
+            </div>
+            <div style={{ position:'absolute', top:'14%', left:'14%', width:'72%', height:'72%', border:'1px solid rgba(16,185,129,0.12)', borderRadius:'50%', animation:'orbit-ccw 20s linear infinite' }}>
+              <div style={{ position:'absolute', bottom:-4, left:'50%', marginLeft:-4, width:8, height:8, borderRadius:'50%', background:'rgba(16,185,129,0.7)', boxShadow:'0 0 7px 2px rgba(16,185,129,0.5)' }} />
+            </div>
+            <div style={{ position:'absolute', top:'30%', left:'30%', width:'40%', height:'40%', border:'1px dashed rgba(20,184,166,0.08)', borderRadius:'50%', animation:'orbit-cw 9s linear infinite' }} />
+          </div>
+        </div>
+
+        {/* Floating 3D orbs */}
+        <div className="pointer-events-none absolute inset-0">
+          <div style={{ position:'absolute', top:'7%', right:'8%', width:72, height:72, borderRadius:'50%', background:'radial-gradient(circle at 30% 30%, rgba(20,184,166,0.25), rgba(20,184,166,0.04))', border:'1px solid rgba(20,184,166,0.15)', animation:'drift-a 7s ease-in-out infinite' }} />
+          <div style={{ position:'absolute', top:'44%', right:'4%', width:44, height:44, borderRadius:'50%', background:'radial-gradient(circle at 30% 30%, rgba(16,185,129,0.2), rgba(16,185,129,0.03))', border:'1px solid rgba(16,185,129,0.12)', animation:'drift-b 9s ease-in-out infinite', animationDelay:'-2s' }} />
+          <div style={{ position:'absolute', bottom:'22%', left:'6%', width:30, height:30, borderRadius:'50%', background:'radial-gradient(circle at 30% 30%, rgba(20,184,166,0.18), transparent)', animation:'drift-a 11s ease-in-out infinite', animationDelay:'-5s' }} />
+          <div style={{ position:'absolute', top:'28%', left:'4%', width:18, height:18, borderRadius:'50%', background:'radial-gradient(circle, rgba(20,184,166,0.35), transparent)', animation:'pulse-orb 4s ease-in-out infinite' }} />
+          {/* Spinning diamonds */}
+          <div style={{ position:'absolute', top:'13%', right:'20%', width:16, height:16, background:'rgba(20,184,166,0.18)', border:'1px solid rgba(20,184,166,0.3)', animation:'spin-diamond 9s linear infinite', animationDelay:'-1s' }} />
+          <div style={{ position:'absolute', bottom:'28%', right:'10%', width:11, height:11, background:'rgba(16,185,129,0.14)', border:'1px solid rgba(16,185,129,0.24)', animation:'spin-diamond 14s linear infinite', animationDelay:'-4s' }} />
+          <div style={{ position:'absolute', top:'60%', left:'8%', width:14, height:14, background:'rgba(20,184,166,0.1)', border:'1px solid rgba(20,184,166,0.2)', animation:'spin-diamond 11s linear infinite', animationDelay:'-7s' }} />
         </div>
 
         {/* Logo */}
@@ -108,8 +165,9 @@ export default function Login() {
             </p>
           </div>
 
-          {/* Terminal card */}
-          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#080f09', border: '1px solid #182b1c' }}>
+          {/* Terminal card — 3D floating */}
+          <div style={{ animation: 'float3d 9s ease-in-out infinite', transformStyle: 'preserve-3d' }}>
+          <div className="rounded-2xl overflow-hidden" style={{ backgroundColor: '#080f09', border: '1px solid #182b1c', boxShadow: '0 20px 60px rgba(20,184,166,0.08), 0 4px 20px rgba(0,0,0,0.4)' }}>
             {/* Title bar */}
             <div className="flex items-center gap-2 px-5 py-3 border-b" style={{ borderColor: '#182b1c', backgroundColor: '#0a1409' }}>
               <span className="w-3 h-3 rounded-full" style={{ backgroundColor: '#ff5f57' }} />
@@ -136,6 +194,7 @@ export default function Login() {
               </div>
             </div>
           </div>
+          </div>{/* /float3d wrapper */}
         </div>
 
         {/* Social proof */}
