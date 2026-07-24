@@ -318,7 +318,7 @@ export default function Layout({ children }: LayoutProps) {
                   <Menu className="w-5 h-5" />
                 </button>
                 <h2 className={`text-base font-semibold capitalize ${isDark ? 'text-white' : 'text-zinc-900'}`}>
-                  {router.pathname.replace('/', '') || 'Dashboard'}
+                  {router.pathname.split('/').filter(Boolean).find((s) => !s.startsWith('[')) || 'Dashboard'}
                 </h2>
               </div>
 
