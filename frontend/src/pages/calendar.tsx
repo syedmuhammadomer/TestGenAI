@@ -1,5 +1,3 @@
-'use client'
-
 import React, { useCallback, useEffect, useRef, useState } from 'react'
 import axios from 'axios'
 import { useRouter } from 'next/router'
@@ -197,7 +195,7 @@ function MiniCalendar({ year, month, today, anchor, onDateClick, onPrev, onNext 
               onClick={() => onDateClick(day)}
               className={`
                 h-7 w-7 mx-auto rounded-full flex items-center justify-center text-[12px] transition-all
-                ${isToday ? 'bg-amber-400 text-black font-bold' :
+                ${isToday ? 'bg-teal-500 text-white font-bold' :
                   isSelected ? 'bg-white/10 text-white font-medium' :
                   isThisMonth ? 'text-zinc-300 hover:bg-white/10' : 'text-zinc-700 hover:bg-white/5'}
               `}
@@ -240,7 +238,7 @@ function MonthView({ meetings, year, month, today, onDayClick, onMeetingClick }:
               } ${i % 7 === 0 ? 'border-l-0' : ''}`}
             >
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-sm font-medium mb-1 transition-colors ${
-                isToday ? 'bg-amber-400 text-black font-bold' : 'text-zinc-300 group-hover:bg-white/10'
+                isToday ? 'bg-teal-500 text-white font-bold' : 'text-zinc-300 group-hover:bg-white/10'
               }`}>
                 {day.getDate()}
               </div>
@@ -288,7 +286,7 @@ function WeekView({ meetings, anchor, today, onSlotClick, onMeetingClick }: {
             <div key={i} className="py-2 text-center border-r border-[#2a2a2a] last:border-r-0">
               <p className="text-xs text-zinc-500 uppercase tracking-wide">{DAYS_FULL[day.getDay()]}</p>
               <div className={`text-xl font-bold mt-0.5 mx-auto w-9 h-9 rounded-full flex items-center justify-center ${
-                isToday ? 'bg-amber-400 text-black' : 'text-zinc-200'
+                isToday ? 'bg-teal-500 text-white' : 'text-zinc-200'
               }`}>{day.getDate()}</div>
             </div>
           )
@@ -312,7 +310,7 @@ function WeekView({ meetings, anchor, today, onSlotClick, onMeetingClick }: {
                   key={di}
                   onClick={() => onSlotClick(day, h)}
                   className={`border-r border-[#1e1e1e] last:border-r-0 hover:bg-white/[0.02] cursor-pointer relative p-0.5 space-y-0.5 ${
-                    isTodayCol ? 'bg-amber-400/[0.02]' : ''
+                    isTodayCol ? 'bg-teal-500/[0.02]' : ''
                   }`}
                 >
                   {slotMeetings.map((m) => <EventChip key={m.id} meeting={m} onClick={() => onMeetingClick(m)} />)}
@@ -354,9 +352,9 @@ function DayView({ meetings, anchor, today, onSlotClick, onMeetingClick }: {
           <p className="text-xs text-zinc-500 uppercase tracking-wider">{DAYS_FULL[anchor.getDay()]}</p>
           <div className="flex items-center gap-2 mt-0.5">
             <div className={`text-2xl font-bold w-10 h-10 rounded-full flex items-center justify-center ${
-              isToday ? 'bg-amber-400 text-black' : 'text-white'
+              isToday ? 'bg-teal-500 text-white' : 'text-white'
             }`}>{anchor.getDate()}</div>
-            {isToday && <span className="text-xs text-amber-400 font-medium">Today</span>}
+            {isToday && <span className="text-xs text-teal-400 font-medium">Today</span>}
           </div>
         </div>
       </div>
@@ -445,7 +443,7 @@ function ScheduleView({ meetings, onMeetingClick }: { meetings: Meeting[]; onMee
             {/* Date column */}
             <div className="w-24 shrink-0 px-4 py-4 text-right border-r border-[#2a2a2a]">
               <p className="text-xs text-zinc-500 uppercase">{DAYS_FULL[d.getDay()]}</p>
-              <div className={`text-2xl font-bold mt-0.5 ${isToday ? 'text-amber-400' : 'text-zinc-200'}`}>
+              <div className={`text-2xl font-bold mt-0.5 ${isToday ? 'text-teal-400' : 'text-zinc-200'}`}>
                 {d.getDate()}
               </div>
               <p className="text-xs text-zinc-600">{MONTHS_SHORT[d.getMonth()]}</p>
@@ -521,10 +519,10 @@ function MeetingDetailModal({ meeting, onClose, onEdit, onDelete, canManage, isS
           <div className="flex items-center gap-1 shrink-0">
             <button
               onClick={onToggleStar}
-              className={`p-2 rounded-lg transition-colors ${isStarred ? 'text-amber-400 hover:bg-amber-400/10' : 'text-zinc-500 hover:bg-white/10 hover:text-amber-400'}`}
+              className={`p-2 rounded-lg transition-colors ${isStarred ? 'text-teal-400 hover:bg-teal-400/10' : 'text-zinc-500 hover:bg-white/10 hover:text-teal-400'}`}
               title={isStarred ? 'Remove from starred' : 'Star this meeting'}
             >
-              <Star className={`w-4 h-4 ${isStarred ? 'fill-amber-400' : ''}`} />
+              <Star className={`w-4 h-4 ${isStarred ? 'fill-teal-400' : ''}`} />
             </button>
             {canManage && (
               <>
@@ -935,60 +933,120 @@ export default function CalendarPage() {
         style={{ height: 'calc(100vh - 64px)', backgroundColor: '#0d0d0d' }}
       >
         {/* ── Top bar ── */}
-        <div className="shrink-0 flex items-center gap-3 px-4 py-2 border-b" style={{ borderColor: '#2a2a2a' }}>
+        <div
+          className="shrink-0 flex items-center gap-2 px-3 py-2.5 border-b"
+          style={{ borderColor: '#1e1e1e', background: 'linear-gradient(to bottom, #141414, #0d0d0d)' }}
+        >
           {/* Sidebar toggle */}
           <button
             onClick={() => setLeftOpen((o) => !o)}
-            className="p-2 rounded-lg text-zinc-500 hover:bg-white/10 hover:text-white transition-colors"
+            title={leftOpen ? 'Hide sidebar' : 'Show sidebar'}
+            className={`p-2 rounded-lg transition-all ${
+              leftOpen
+                ? 'bg-white/10 text-white'
+                : 'text-zinc-500 hover:bg-white/8 hover:text-zinc-300'
+            }`}
           >
             <PanelLeft className="w-4 h-4" />
           </button>
 
-          {/* Nav arrows + Today */}
-          <div className="flex items-center gap-1">
-            <button onClick={goBack} className="p-1.5 rounded-lg text-zinc-500 hover:bg-white/10 hover:text-white transition-colors">
+          <div className="w-px h-5 bg-white/10 mx-1" />
+
+          {/* Nav arrows */}
+          <div className="flex items-center gap-0.5">
+            <button
+              onClick={goBack}
+              className="p-1.5 rounded-lg text-zinc-500 hover:bg-white/8 hover:text-zinc-300 transition-all"
+            >
               <ChevronLeft className="w-4 h-4" />
             </button>
-            <button onClick={goForward} className="p-1.5 rounded-lg text-zinc-500 hover:bg-white/10 hover:text-white transition-colors">
-              <ChevronRight className="w-4 h-4" />
-            </button>
             <button
-              onClick={() => setAnchor(new Date())}
-              className="px-3 py-1.5 rounded-lg text-sm font-medium text-zinc-300 hover:bg-white/10 transition-colors border ml-1"
-              style={{ borderColor: '#3a3a3a' }}
+              onClick={goForward}
+              className="p-1.5 rounded-lg text-zinc-500 hover:bg-white/8 hover:text-zinc-300 transition-all"
             >
-              Today
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
+          {/* Today pill */}
+          <button
+            onClick={() => setAnchor(new Date())}
+            className="px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all hover:bg-white/8"
+            style={{ borderColor: '#2e2e2e', color: '#a1a1aa' }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = '#fff'; e.currentTarget.style.borderColor = '#4a4a4a' }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = '#a1a1aa'; e.currentTarget.style.borderColor = '#2e2e2e' }}
+          >
+            Today
+          </button>
+
           {/* Date label */}
-          <h2 className="text-base font-semibold text-white truncate">{headerLabel()}</h2>
+          <div className="flex items-baseline gap-2 ml-1 min-w-0">
+            <h2 className="text-base font-bold text-white tracking-tight truncate">{headerLabel()}</h2>
+            {view === 'month' && (
+              <span className="hidden sm:inline text-xs text-zinc-600 font-medium shrink-0">
+                {meetings.filter((m) => {
+                  const d = new Date(m.startDatetime)
+                  return d.getFullYear() === anchor.getFullYear() && d.getMonth() === anchor.getMonth()
+                }).length} events
+              </span>
+            )}
+          </div>
 
           {/* View switcher — centered */}
           <div className="flex-1 flex justify-center">
-            <div className="flex items-center rounded-full border p-0.5" style={{ borderColor: '#3a3a3a', backgroundColor: '#111' }}>
-              {(['day', 'week', 'month', 'schedule'] as CalView[]).map((v) => (
+            <div
+              className="flex items-center gap-0.5 rounded-xl p-1"
+              style={{ backgroundColor: '#161616', border: '1px solid #262626' }}
+            >
+              {([
+                { key: 'day',      label: 'Day' },
+                { key: 'week',     label: 'Week' },
+                { key: 'month',    label: 'Month' },
+                { key: 'schedule', label: 'List' },
+              ] as { key: CalView; label: string }[]).map(({ key, label }) => (
                 <button
-                  key={v}
-                  onClick={() => setView(v)}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition-all capitalize ${
-                    view === v ? 'bg-white text-black' : 'text-zinc-400 hover:text-white'
+                  key={key}
+                  onClick={() => setView(key)}
+                  className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                    view === key
+                      ? 'bg-white text-black shadow-sm'
+                      : 'text-zinc-500 hover:text-zinc-300 hover:bg-white/5'
                   }`}
                 >
-                  {v}
+                  {label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Create */}
+          {/* Upcoming event count badge */}
+          {(() => {
+            const now = new Date()
+            const upcoming = meetings.filter((m) => new Date(m.startDatetime) >= now && m.status === 'upcoming').length
+            return upcoming > 0 ? (
+              <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-medium"
+                style={{ backgroundColor: '#14b8a615', color: '#14b8a6', border: '1px solid #14b8a625' }}>
+                <div className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-pulse" />
+                {upcoming} upcoming
+              </div>
+            ) : null
+          })()}
+
+          {/* Create button */}
           {canManage && (
             <button
               onClick={() => openCreate()}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm font-semibold text-white transition-all hover:opacity-90"
-              style={{ backgroundColor: '#14b8a6' }}
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white transition-all active:scale-95 shadow-lg"
+              style={{
+                background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+                boxShadow: '0 0 0 1px rgba(20,184,166,0.3), 0 4px 12px rgba(20,184,166,0.2)',
+              }}
+              onMouseEnter={(e) => (e.currentTarget.style.boxShadow = '0 0 0 1px rgba(20,184,166,0.5), 0 4px 20px rgba(20,184,166,0.35)')}
+              onMouseLeave={(e) => (e.currentTarget.style.boxShadow = '0 0 0 1px rgba(20,184,166,0.3), 0 4px 12px rgba(20,184,166,0.2)')}
             >
-              <Plus className="w-3.5 h-3.5" /> Create
+              <Plus className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">New Event</span>
+              <span className="sm:hidden">New</span>
             </button>
           )}
         </div>
@@ -1009,19 +1067,6 @@ export default function CalendarPage() {
                 onPrev={() => { const d = new Date(anchor); d.setMonth(d.getMonth() - 1); setAnchor(d) }}
                 onNext={() => { const d = new Date(anchor); d.setMonth(d.getMonth() + 1); setAnchor(d) }}
               />
-
-              <div className="mx-4 my-2 border-t" style={{ borderColor: '#2a2a2a' }} />
-
-              {/* User account */}
-              <div className="px-4 py-3 flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0"
-                  style={{ background: 'linear-gradient(135deg, #14b8a6, #0d9488)', color: '#fff' }}>
-                  {userInitial}
-                </div>
-                <p className="text-sm font-medium text-white truncate">{userData.firstName} {userData.lastName}</p>
-              </div>
-
-              <div className="mx-4 my-1 border-t" style={{ borderColor: '#2a2a2a' }} />
 
               {/* My Meetings */}
               <div className="px-3 py-2">
@@ -1069,7 +1114,7 @@ export default function CalendarPage() {
                   className="w-full flex items-center justify-between px-1 py-1.5 text-sm font-medium text-zinc-300 hover:text-white transition-colors"
                 >
                   <span className="flex items-center gap-1.5">
-                    <Star className="w-3.5 h-3.5 text-amber-400" />
+                    <Star className="w-3.5 h-3.5 text-teal-400" />
                     Starred Meetings
                   </span>
                   <ChevronDown className={`w-3.5 h-3.5 text-zinc-500 transition-transform ${starredOpen ? '' : '-rotate-90'}`} />
