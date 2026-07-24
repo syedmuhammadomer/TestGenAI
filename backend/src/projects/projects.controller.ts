@@ -1,19 +1,13 @@
 import { BadRequestException, Body, Controller, Delete, Get, NotFoundException, Param, ParseIntPipe, Patch, Post, Req, UploadedFile, UseGuards, UseInterceptors } from '@nestjs/common';
 import { JwtAuthGuard, AuthenticatedRequest } from '../auth/guards/jwt-auth.guard';
 import { ApiBody, ApiConsumes, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { diskStorage } from 'multer';
+import { memoryStorage } from 'multer';
 import { FileInterceptor } from '@nestjs/platform-express';
-import path from 'path';
-import { existsSync, mkdirSync } from 'fs';
 import { CreateProjectDto } from './dto/create-project.dto';
 import { CreateUserStoryDto } from './dto/create-user-story.dto';
 import { UpdateUserStoryDto } from './dto/update-user-story.dto';
 import { ProjectsService } from './projects.service';
 
-const UPLOAD_DIR = path.join(process.cwd(), 'uploads', 'srs');
-if (!existsSync(UPLOAD_DIR)) {
-  mkdirSync(UPLOAD_DIR, { recursive: true });
-}
 const allowedMimeTypes = [
   'application/pdf',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -26,17 +20,6 @@ const fileFilter = (_req, file, callback) => {
   }
   callback(new BadRequestException('Only PDF and DOCX files are supported. Please convert legacy .doc files to .docx or PDF.'), false);
 };
-
-const storage = diskStorage({
-  destination: (_req, _file, callback) => {
-    callback(null, UPLOAD_DIR);
-  },
-  filename: (_req, file, callback) => {
-    const timestamp = Date.now();
-    const name = file.originalname.replace(/\s+/g, '-');
-    callback(null, `${timestamp}-${name}`);
-  },
-});
 
 @ApiTags('projects')
 @UseGuards(JwtAuthGuard)
@@ -64,7 +47,7 @@ export class ProjectsController {
   @ApiResponse({ status: 400, description: 'Invalid inputs or wrong file type' })
   @UseInterceptors(
     FileInterceptor('srsDocument', {
-      storage,
+      storage: memoryStorage(),
       fileFilter,
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
@@ -73,7 +56,10 @@ export class ProjectsController {
     if (file == null) {
       throw new BadRequestException('SRS document is required');
     }
-    const project = await this.projectsService.createProject(body.projectName, file.path, req.user!.id);
+    // Extract text immediately from the in-memory buffer — no disk write needed.
+    // This means the text is persisted in the DB and survives container restarts.
+    const extractedText = await this.projectsService.extractTextFromBuffer(file.buffer, file.originalname);
+    const project = await this.projectsService.createProject(body.projectName, extractedText, req.user!.id);
     return {
       message: 'Project queued for processing',
       projectId: project.id,

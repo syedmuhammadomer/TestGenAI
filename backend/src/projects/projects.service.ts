@@ -57,10 +57,25 @@ export class ProjectsService implements OnModuleInit {
     }
   }
 
-  async createProject(projectName: string, srsPath: string, userId?: number) {
+  /** Extract raw text from an in-memory file buffer (PDF or DOCX). */
+  async extractTextFromBuffer(buffer: Buffer, originalname: string): Promise<string> {
+    const ext = path.extname(originalname).toLowerCase();
+    if (ext === '.pdf') {
+      const parsed = await pdfParse(buffer);
+      return parsed.text;
+    }
+    if (ext === '.docx' || ext === '.doc') {
+      const result = await mammoth.extractRawText({ buffer });
+      return result.value;
+    }
+    throw new BadRequestException('Unsupported document type');
+  }
+
+  async createProject(projectName: string, extractedText: string, userId?: number) {
     const project = this.projectRepository.create({
       name: projectName,
-      srsPath,
+      srsPath: '',
+      extractedText,
       status: ProjectStatus.Queued,
       progress: 0,
       userId,
@@ -291,7 +306,16 @@ export class ProjectsService implements OnModuleInit {
 
     try {
       await reportProgress(10);
-      const rawText = await this.extractTextFromFile(project.srsPath);
+      // Use text already extracted and stored in DB at upload time.
+      // Falls back to file-based extraction for legacy projects that still have srsPath.
+      let rawText: string;
+      if (project.extractedText) {
+        rawText = project.extractedText;
+      } else if (project.srsPath) {
+        rawText = await this.extractTextFromFile(project.srsPath);
+      } else {
+        throw new BadRequestException('No SRS content available for this project. Please re-upload the document.');
+      }
       await reportProgress(20);
       const cleanedText = this.cleanText(rawText);
       await reportProgress(25);

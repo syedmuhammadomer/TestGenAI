@@ -23,8 +23,8 @@ export class Project {
   @Column()
   name: string;
 
-  @Column()
-  srsPath: string;
+  @Column({ nullable: true })
+  srsPath?: string;
 
   @Column({ type: 'text', nullable: true })
   extractedText?: string;
