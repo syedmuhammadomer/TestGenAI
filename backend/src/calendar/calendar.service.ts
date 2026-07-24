@@ -1,9 +1,12 @@
-import { Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Between, LessThanOrEqual, MoreThan, Repository } from 'typeorm';
 import { Meeting } from './entities/meeting.entity';
 import { MeetingParticipant } from './entities/meeting-participant.entity';
 import { CreateMeetingDto, UpdateMeetingDto } from './dto/create-meeting.dto';
+import { MemberRole, TeamMember } from '../team/entities/team-member.entity';
+
+const CALENDAR_MANAGER_ROLES: MemberRole[] = [MemberRole.CompanyAdmin, MemberRole.PM, MemberRole.BA];
 
 @Injectable()
 export class CalendarService implements OnModuleInit {
@@ -14,7 +17,21 @@ export class CalendarService implements OnModuleInit {
     private readonly meetingRepo: Repository<Meeting>,
     @InjectRepository(MeetingParticipant)
     private readonly participantRepo: Repository<MeetingParticipant>,
+    @InjectRepository(TeamMember)
+    private readonly teamMemberRepo: Repository<TeamMember>,
   ) {}
+
+  /**
+   * Returns true if the user can create/edit/delete meetings.
+   * Company admins (user.role === 'admin') always can.
+   * For 'member' users, we check their TeamMember role.
+   */
+  private async canManage(userId: number, userRole: string, userEmail: string): Promise<boolean> {
+    if (userRole === 'admin') return true;
+    const member = await this.teamMemberRepo.findOne({ where: { email: userEmail } });
+    if (!member) return true; // self-registered user treated as admin
+    return CALENDAR_MANAGER_ROLES.includes(member.role);
+  }
 
   /** Auto-update meeting statuses every minute */
   onModuleInit() {
@@ -94,7 +111,10 @@ export class CalendarService implements OnModuleInit {
     return meeting;
   }
 
-  async create(dto: CreateMeetingDto, userId: number): Promise<Meeting> {
+  async create(dto: CreateMeetingDto, userId: number, userRole: string, userEmail: string): Promise<Meeting> {
+    if (!(await this.canManage(userId, userRole, userEmail))) {
+      throw new ForbiddenException('Only Company Admin, Project Manager, or Business Analyst can schedule meetings');
+    }
     const meeting = this.meetingRepo.create({
       title: dto.title,
       description: dto.description,
@@ -132,7 +152,10 @@ export class CalendarService implements OnModuleInit {
     return this.meetingRepo.findOne({ where: { id: saved.id }, relations: ['participants'] }) as Promise<Meeting>;
   }
 
-  async update(id: number, dto: UpdateMeetingDto, userId: number): Promise<Meeting> {
+  async update(id: number, dto: UpdateMeetingDto, userId: number, userRole: string, userEmail: string): Promise<Meeting> {
+    if (!(await this.canManage(userId, userRole, userEmail))) {
+      throw new ForbiddenException('Only Company Admin, Project Manager, or Business Analyst can edit meetings');
+    }
     const meeting = await this.meetingRepo.findOne({ where: { id }, relations: ['participants'] });
     if (!meeting) throw new NotFoundException('Meeting not found');
 
@@ -175,7 +198,10 @@ export class CalendarService implements OnModuleInit {
     return this.meetingRepo.findOne({ where: { id }, relations: ['participants'] }) as Promise<Meeting>;
   }
 
-  async remove(id: number, userId: number): Promise<void> {
+  async remove(id: number, userId: number, userRole: string, userEmail: string): Promise<void> {
+    if (!(await this.canManage(userId, userRole, userEmail))) {
+      throw new ForbiddenException('Only Company Admin, Project Manager, or Business Analyst can delete meetings');
+    }
     const meeting = await this.meetingRepo.findOne({ where: { id } });
     if (!meeting) throw new NotFoundException('Meeting not found');
     await this.meetingRepo.remove(meeting);

@@ -20,10 +20,16 @@ export class TeamService {
     private readonly emailService: EmailService,
   ) {}
 
-  async createTeamGroup(userId: number, name: string, description?: string) {
+  async createTeamGroup(userId: number, name: string, description?: string, projectId?: number, projectName?: string) {
     const existing = await this.teamGroupRepository.findOne({ where: { userId, name } });
     if (existing) throw new BadRequestException('A team with this name already exists.');
-    const group = this.teamGroupRepository.create({ userId, name: name.trim(), description: description?.trim() });
+    const group = this.teamGroupRepository.create({
+      userId,
+      name: name.trim(),
+      description: description?.trim(),
+      projectId: projectId || undefined,
+      projectName: projectName?.trim() || undefined,
+    });
     return this.teamGroupRepository.save(group);
   }
 

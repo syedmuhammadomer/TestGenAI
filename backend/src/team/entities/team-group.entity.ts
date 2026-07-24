@@ -14,6 +14,14 @@ export class TeamGroup {
   @Column({ nullable: true })
   description?: string;
 
+  /** Optional link to a specific project */
+  @Column({ nullable: true })
+  projectId?: number;
+
+  /** Project name snapshot (denormalized for display) */
+  @Column({ nullable: true })
+  projectName?: string;
+
   @CreateDateColumn()
   createdAt: Date;
 }

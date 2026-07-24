@@ -55,25 +55,25 @@ export class CalendarController {
   }
 
   @Post('meetings')
-  @ApiOperation({ summary: 'Create a meeting' })
+  @ApiOperation({ summary: 'Create a meeting (PM, BA, Company Admin only)' })
   async create(@Req() req: AuthenticatedRequest, @Body() dto: CreateMeetingDto) {
-    return this.calendarService.create(dto, req.user!.id);
+    return this.calendarService.create(dto, req.user!.id, req.user!.role, req.user!.email);
   }
 
   @Patch('meetings/:id')
-  @ApiOperation({ summary: 'Update a meeting' })
+  @ApiOperation({ summary: 'Update a meeting (PM, BA, Company Admin only)' })
   async update(
     @Req() req: AuthenticatedRequest,
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateMeetingDto,
   ) {
-    return this.calendarService.update(id, dto, req.user!.id);
+    return this.calendarService.update(id, dto, req.user!.id, req.user!.role, req.user!.email);
   }
 
   @Delete('meetings/:id')
-  @ApiOperation({ summary: 'Delete a meeting' })
+  @ApiOperation({ summary: 'Delete a meeting (PM, BA, Company Admin only)' })
   async remove(@Req() req: AuthenticatedRequest, @Param('id', ParseIntPipe) id: number) {
-    await this.calendarService.remove(id, req.user!.id);
+    await this.calendarService.remove(id, req.user!.id, req.user!.role, req.user!.email);
     return { message: 'Meeting deleted' };
   }
 

@@ -56,6 +56,8 @@ export type TeamGroup = {
   id: number
   name: string
   description?: string
+  projectId?: number
+  projectName?: string
   createdAt: string
 }
 
@@ -67,7 +69,7 @@ export const teamService = {
     return data
   },
 
-  async createTeamGroup(payload: { name: string; description?: string }): Promise<TeamGroup> {
+  async createTeamGroup(payload: { name: string; description?: string; projectId?: number; projectName?: string }): Promise<TeamGroup> {
     const { data } = await axios.post<TeamGroup>(`${config.apiBaseUrl}/api/team/groups`, payload, {
       headers: authHeader(),
     })

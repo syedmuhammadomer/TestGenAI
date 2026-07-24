@@ -129,14 +129,23 @@ function SendToggle({ value, onChange }: { value: boolean; onChange: (v: boolean
 function CreateTeamModal({ onClose, onCreated }: { onClose: () => void; onCreated: (team: TeamGroup) => void }) {
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
+  const [projectId, setProjectId] = useState<number | undefined>(undefined)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const { projects } = useProjectContext()
+
+  const selectedProject = projects.find((p) => p.id === projectId)
 
   const handleCreate = async () => {
     if (!name.trim()) { setError('Team name is required'); return }
     setError(''); setLoading(true)
     try {
-      const team = await teamService.createTeamGroup({ name: name.trim(), description: description.trim() || undefined })
+      const team = await teamService.createTeamGroup({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        projectId: projectId || undefined,
+        projectName: selectedProject?.name || undefined,
+      })
       onCreated(team)
     } catch (err) {
       const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
@@ -153,6 +162,23 @@ function CreateTeamModal({ onClose, onCreated }: { onClose: () => void; onCreate
           <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
           <input type="text" value={name} onChange={(e) => setName(e.target.value)}
             placeholder="e.g. QA Team, Frontend Squad" className={inputCls} autoFocus />
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+          Linked Project <span className="text-slate-600 normal-case font-normal">(optional)</span>
+        </label>
+        <div className="relative">
+          <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+          <select
+            value={projectId ?? ''}
+            onChange={(e) => setProjectId(e.target.value ? Number(e.target.value) : undefined)}
+            className={`${inputCls} appearance-none`}
+          >
+            <option value="">— No project —</option>
+            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500 pointer-events-none" />
         </div>
       </div>
       <div className="space-y-1.5">
@@ -667,6 +693,11 @@ export default function TeamPage() {
                           <ChevronRight className="w-4 h-4 text-slate-600 group-hover:text-primary-400 transition mt-1" />
                         </div>
                         <p className="text-base font-semibold text-white truncate">{team.name}</p>
+                        {team.projectName && (
+                          <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-primary-600/15 border border-primary-600/30 text-primary-300 text-[10px] font-medium">
+                            <Briefcase className="w-2.5 h-2.5" /> {team.projectName}
+                          </span>
+                        )}
                         {team.description && (
                           <p className="text-xs text-slate-500 mt-1 line-clamp-2">{team.description}</p>
                         )}
@@ -743,7 +774,14 @@ export default function TeamPage() {
                         <Users className="w-6 h-6 text-primary-400" />
                       </div>
                       <div>
-                        <h2 className="text-lg font-bold text-white">{selectedTeam.name}</h2>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h2 className="text-lg font-bold text-white">{selectedTeam.name}</h2>
+                          {selectedTeam.projectName && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-primary-600/15 border border-primary-600/30 text-primary-300 text-[10px] font-medium">
+                              <Briefcase className="w-2.5 h-2.5" /> {selectedTeam.projectName}
+                            </span>
+                          )}
+                        </div>
                         {selectedTeam.description && (
                           <p className="text-sm text-slate-400 mt-0.5">{selectedTeam.description}</p>
                         )}

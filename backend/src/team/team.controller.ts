@@ -25,8 +25,8 @@ export class TeamController {
 
   @Post('groups')
   @ApiOperation({ summary: 'Create a team group' })
-  async createTeamGroup(@Req() req: AuthenticatedRequest, @Body() body: { name: string; description?: string }) {
-    return this.teamService.createTeamGroup(req.user!.id, body.name, body.description);
+  async createTeamGroup(@Req() req: AuthenticatedRequest, @Body() body: { name: string; description?: string; projectId?: number; projectName?: string }) {
+    return this.teamService.createTeamGroup(req.user!.id, body.name, body.description, body.projectId, body.projectName);
   }
 
   @Post('invite')

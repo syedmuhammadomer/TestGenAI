@@ -145,8 +145,9 @@ export class AuthService {
     });
     await this.userRepository.save(newUser);
 
-    // Mark team member as active
+    // Mark team member as active and link to the new user account
     member.status = TeamMemberStatus.Online;
+    member.userId = newUser.id;
     await this.teamMemberRepository.save(member);
 
     const token = jwt.sign(

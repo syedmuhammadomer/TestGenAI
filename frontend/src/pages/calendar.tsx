@@ -792,7 +792,7 @@ export default function CalendarPage() {
     })
   }
 
-  const canManage = ['company_admin', 'pm'].includes(userRole)
+  const canManage = ['company_admin', 'pm', 'ba'].includes(userRole)
   const token = typeof window !== 'undefined' ? localStorage.getItem('authToken') : null
 
   const loadMeetings = useCallback(async () => {
