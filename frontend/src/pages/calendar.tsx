@@ -7,7 +7,6 @@ import {
   ChevronLeft, ChevronRight, Clock, ExternalLink,
   MapPin, Plus, Trash2, Users, Video, X, Edit2, Star,
   AlertCircle, Check, RefreshCw, PanelLeft, ChevronDown,
-  Calendar, Bell,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
