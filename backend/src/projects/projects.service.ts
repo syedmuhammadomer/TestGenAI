@@ -477,7 +477,7 @@ Rules:
 
   /** Shared AI call helper with timeout */
   private async callAiWithRetry(systemPrompt: string, userPrompt: string, maxTokens: number): Promise<string> {
-    const model = this.configService.get<string>('NVIDIA_MODEL') || 'meta/llama-3.1-70b-instruct';
+    const model = this.configService.get<string>('NVIDIA_MODEL') || 'meta/llama-3.1-8b-instruct';
     this.logger.log(`AI call [model=${model}, max_tokens=${maxTokens}]`);
 
     const controller = new AbortController();
@@ -649,7 +649,10 @@ Rules:
   }
 
   private cleanText(text: string) {
-    return text.replace(/\s+/g, ' ').trim();
+    let cleaned = text.replace(/\s+/g, ' ').trim();
+    cleaned = cleaned.replace(/!\[[^\]]*\]\([^)]*\)/g, '');
+    cleaned = cleaned.replace(/\b(?:image|img|photo|picture|figure|diagram|chart|graph)\.(?:png|jpe?g|gif|bmp|webp|svg)\b/gi, '');
+    return cleaned.trim();
   }
 
   private async extractTextFromFile(filePath: string) {

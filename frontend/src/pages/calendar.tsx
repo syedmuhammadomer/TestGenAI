@@ -6,7 +6,7 @@ import { config } from '@/utils/config'
 import {
   ChevronLeft, ChevronRight, Clock, ExternalLink,
   MapPin, Plus, Trash2, Users, Video, X, Edit2, Star,
-  AlertCircle, Check, RefreshCw, PanelLeft, ChevronDown,
+  AlertCircle, Check, RefreshCw, PanelLeft, ChevronDown, Calendar,
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -606,6 +606,54 @@ function MeetingDetailModal({ meeting, onClose, onEdit, onDelete, canManage, isS
   )
 }
 
+// ─── Custom Select ─────────────────────────────────────────────────────────────
+function CustomSelect<T extends string | number>({ value, onChange, options }: {
+  value: T; onChange: (v: T) => void; options: { value: T; label: string }[]
+}) {
+  const [open, setOpen] = useState(false)
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
+    }
+    document.addEventListener('mousedown', close)
+    return () => document.removeEventListener('mousedown', close)
+  }, [])
+  const selected = options.find((o) => String(o.value) === String(value))
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between bg-[#111] border border-[#2a2a2a] rounded-xl px-3.5 py-2.5 text-sm text-white hover:border-[#3a3a3a] focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 transition-all focus:outline-none"
+      >
+        <span className={selected ? 'text-white' : 'text-zinc-600'}>{selected?.label ?? '—'}</span>
+        <ChevronDown className={`w-4 h-4 text-zinc-500 transition-transform shrink-0 ml-2 ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && (
+        <div className="absolute z-[60] w-full mt-1 rounded-xl border border-[#2a2a2a] bg-[#161616] shadow-2xl overflow-hidden">
+          {options.map((opt) => {
+            const sel = String(opt.value) === String(value)
+            return (
+              <button key={String(opt.value)} type="button"
+                onClick={() => { onChange(opt.value); setOpen(false) }}
+                className={`w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm transition-colors ${
+                  sel ? 'bg-teal-500/15 text-teal-300' : 'text-zinc-300 hover:bg-white/5 hover:text-white'
+                }`}
+              >
+                <span className="w-4 shrink-0 flex items-center justify-center">
+                  {sel && <Check className="w-3.5 h-3.5 text-teal-400" />}
+                </span>
+                {opt.label}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Meeting modal (create / edit) ────────────────────────────────────────────
 const EMPTY_FORM = {
   title: '', description: '', type: 'custom' as EventType,
@@ -641,119 +689,218 @@ function MeetingModal({ initial, teamMembers, onSave, onClose }: {
     try { await onSave({ ...form, id: initial?.id }) } catch (e: unknown) { setError((e as { message?: string })?.message ?? 'Failed to save meeting') } finally { setSaving(false) }
   }
 
-  const inputCls = 'w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 transition-all'
-  const labelCls = 'block text-xs font-semibold text-zinc-500 mb-1.5'
+  const isEdit = !!initial?.id
+  const inputCls = 'w-full bg-[#111] border border-[#2a2a2a] rounded-xl px-3.5 py-2.5 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 transition-all hover:border-[#3a3a3a]'
+  const labelCls = 'block text-[10px] font-bold text-zinc-500 uppercase tracking-widest mb-1.5'
+
+  const SectionDivider = ({ label }: { label: string }) => (
+    <div className="flex items-center gap-3 pt-1">
+      <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-700 shrink-0">{label}</span>
+      <div className="flex-1 h-px bg-[#1e1e1e]" />
+    </div>
+  )
+
+  const typeOptions = (Object.entries(EVENT_TYPES) as [EventType, { label: string }][]).map(([k, v]) => ({ value: k, label: v.label }))
+  const priorityOptions = (Object.entries(PRIORITY_CONFIG) as [Priority, { label: string }][]).map(([k, v]) => ({ value: k, label: v.label }))
+  const repeatOptions: { value: RepeatType; label: string }[] = [
+    { value: 'none', label: 'Does not repeat' },
+    { value: 'daily', label: 'Every day' },
+    { value: 'weekly', label: 'Every week' },
+    { value: 'monthly', label: 'Every month' },
+  ]
+  const reminderOpts = REMINDER_OPTIONS.map((r) => ({ value: r.value, label: r.label }))
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-2xl bg-[#111] border border-[#2a2a2a] rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-6 py-4 border-b border-[#2a2a2a] shrink-0">
-          <h2 className="text-base font-bold text-white">{initial?.id ? 'Edit Meeting' : 'New Meeting'}</h2>
-          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-500 hover:bg-white/10 hover:text-white transition-colors"><X className="w-4 h-4" /></button>
-        </div>
-        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
-          <div>
-            <label className={labelCls}>Meeting Title *</label>
-            <input className={inputCls} placeholder="e.g. Sprint 12 Planning" value={form.title} onChange={(e) => set('title', e.target.value)} />
+      <div
+        className="w-full max-w-2xl bg-[#0f0f0f] border border-[#222] rounded-2xl shadow-2xl overflow-hidden max-h-[92vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Teal gradient accent */}
+        <div className="h-[2px] w-full shrink-0" style={{ background: 'linear-gradient(to right, #14b8a6, #0d9488 50%, transparent)' }} />
+
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[#1a1a1a] shrink-0">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+              style={{ background: 'linear-gradient(135deg, #14b8a618, #0d948618)', border: '1px solid #14b8a625' }}
+            >
+              <Calendar className="w-4 h-4 text-teal-400" />
+            </div>
+            <div>
+              <h2 className="text-sm font-bold text-white leading-tight">{isEdit ? 'Edit Meeting' : 'New Meeting'}</h2>
+              <p className="text-[11px] text-zinc-600 leading-tight mt-0.5">{isEdit ? 'Update meeting details' : 'Schedule a new meeting'}</p>
+            </div>
           </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg text-zinc-600 hover:bg-white/8 hover:text-white transition-colors">
+            <X className="w-4 h-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <form onSubmit={handleSubmit} className="overflow-y-auto flex-1 px-6 py-5 space-y-4">
+
+          {/* Title */}
+          <input
+            className="w-full bg-transparent border-b-2 border-[#2a2a2a] px-0 py-2 text-lg font-semibold text-white placeholder-zinc-700 focus:outline-none focus:border-teal-500 transition-colors"
+            placeholder="Meeting title…"
+            value={form.title}
+            onChange={(e) => set('title', e.target.value)}
+          />
+
+          {/* Type & Priority */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Meeting Type</label>
-              <select className={inputCls} value={form.type} onChange={(e) => set('type', e.target.value as EventType)}>
-                {(Object.entries(EVENT_TYPES) as [EventType, { label: string }][]).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
+              <label className={labelCls}>Type</label>
+              <CustomSelect value={form.type} onChange={(v) => set('type', v as EventType)} options={typeOptions} />
             </div>
             <div>
               <label className={labelCls}>Priority</label>
-              <select className={inputCls} value={form.priority} onChange={(e) => set('priority', e.target.value as Priority)}>
-                {(Object.entries(PRIORITY_CONFIG) as [Priority, { label: string }][]).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
-              </select>
+              <CustomSelect value={form.priority} onChange={(v) => set('priority', v as Priority)} options={priorityOptions} />
             </div>
           </div>
+
+          {/* ── Schedule ── */}
+          <SectionDivider label="Schedule" />
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className={labelCls}>Start Date &amp; Time *</label>
-              <input type="datetime-local" className={inputCls} value={form.startDatetime} onChange={(e) => set('startDatetime', e.target.value)} />
+              <label className={labelCls}>Start</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none z-10" />
+                <input
+                  type="datetime-local"
+                  style={{ colorScheme: 'dark' }}
+                  className={`${inputCls} pl-9`}
+                  value={form.startDatetime}
+                  onChange={(e) => set('startDatetime', e.target.value)}
+                />
+              </div>
             </div>
             <div>
-              <label className={labelCls}>End Date &amp; Time *</label>
-              <input type="datetime-local" className={inputCls} value={form.endDatetime} onChange={(e) => set('endDatetime', e.target.value)} />
+              <label className={labelCls}>End</label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none z-10" />
+                <input
+                  type="datetime-local"
+                  style={{ colorScheme: 'dark' }}
+                  className={`${inputCls} pl-9`}
+                  value={form.endDatetime}
+                  onChange={(e) => set('endDatetime', e.target.value)}
+                />
+              </div>
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className={labelCls}>Repeat</label>
+              <CustomSelect value={form.repeatType} onChange={(v) => set('repeatType', v as RepeatType)} options={repeatOptions} />
+            </div>
+            <div>
+              <label className={labelCls}>Reminder</label>
+              <CustomSelect value={form.reminderMinutes} onChange={(v) => set('reminderMinutes', Number(v))} options={reminderOpts} />
+            </div>
+          </div>
+
+          {/* ── Details ── */}
+          <SectionDivider label="Details" />
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Location</label>
-              <input className={inputCls} placeholder="Room / Address" value={form.location} onChange={(e) => set('location', e.target.value)} />
+              <div className="relative">
+                <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none" />
+                <input className={`${inputCls} pl-9`} placeholder="Room / Address" value={form.location} onChange={(e) => set('location', e.target.value)} />
+              </div>
             </div>
             <div>
               <label className={labelCls}>Meeting Link</label>
-              <input className={inputCls} placeholder="https://meet.google.com/..." value={form.meetingLink} onChange={(e) => set('meetingLink', e.target.value)} />
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className={labelCls}>Sprint</label>
-              <input className={inputCls} placeholder="Sprint 12" value={form.sprintId} onChange={(e) => set('sprintId', e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Repeat</label>
-              <select className={inputCls} value={form.repeatType} onChange={(e) => set('repeatType', e.target.value as RepeatType)}>
-                <option value="none">Does not repeat</option>
-                <option value="daily">Daily</option>
-                <option value="weekly">Weekly</option>
-                <option value="monthly">Monthly</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className={labelCls}>Reminder</label>
-            <select className={inputCls} value={form.reminderMinutes} onChange={(e) => set('reminderMinutes', Number(e.target.value))}>
-              {REMINDER_OPTIONS.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className={labelCls}>Description</label>
-            <textarea className={`${inputCls} min-h-[72px] resize-y`} placeholder="Meeting agenda, goals…" value={form.description} onChange={(e) => set('description', e.target.value)} />
-          </div>
-          {teamMembers.length > 0 && (
-            <div>
-              <label className={labelCls}>Invite Members</label>
-              <div className="max-h-36 overflow-y-auto space-y-1 rounded-xl border border-[#2a2a2a] bg-[#0d0d0d] p-2">
-                {teamMembers.map((m) => {
-                  const selected = form.participantIds.includes(m.id)
-                  return (
-                    <button key={m.id} type="button" onClick={() => toggleParticipant(m.id)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left transition-colors ${selected ? 'bg-teal-600/15 text-teal-300' : 'hover:bg-white/5 text-zinc-300'}`}>
-                      <div className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center shrink-0 ${selected ? 'bg-teal-500 text-white' : 'bg-zinc-700 text-zinc-400'}`}>
-                        {selected ? <Check className="w-3 h-3" /> : m.fullName.charAt(0).toUpperCase()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{m.fullName}</p>
-                        <p className="text-xs text-zinc-500 truncate">{m.email}</p>
-                      </div>
-                    </button>
-                  )
-                })}
+              <div className="relative">
+                <Video className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600 pointer-events-none" />
+                <input className={`${inputCls} pl-9`} placeholder="https://meet.google.com/…" value={form.meetingLink} onChange={(e) => set('meetingLink', e.target.value)} />
               </div>
             </div>
-          )}
+          </div>
+
+          <div>
+            <label className={labelCls}>Sprint</label>
+            <input className={inputCls} placeholder="Sprint 12" value={form.sprintId} onChange={(e) => set('sprintId', e.target.value)} />
+          </div>
+
+          {/* ── Content ── */}
+          <SectionDivider label="Content" />
+
+          <div>
+            <label className={labelCls}>Description</label>
+            <textarea className={`${inputCls} min-h-[80px] resize-y`} placeholder="Meeting agenda, goals…" value={form.description} onChange={(e) => set('description', e.target.value)} />
+          </div>
+
           <div>
             <label className={labelCls}>Notes</label>
             <textarea className={`${inputCls} min-h-[56px] resize-y`} placeholder="Additional notes…" value={form.notes} onChange={(e) => set('notes', e.target.value)} />
           </div>
+
+          {/* ── Invite ── */}
+          {teamMembers.length > 0 && (
+            <>
+              <SectionDivider label="Invite" />
+              <div className="rounded-xl border border-[#2a2a2a] bg-[#0a0a0a] overflow-hidden">
+                <div className="max-h-40 overflow-y-auto divide-y divide-[#181818]">
+                  {teamMembers.map((m) => {
+                    const selected = form.participantIds.includes(m.id)
+                    return (
+                      <button key={m.id} type="button" onClick={() => toggleParticipant(m.id)}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors ${
+                          selected ? 'bg-teal-500/[0.08]' : 'hover:bg-white/[0.03]'
+                        }`}
+                      >
+                        <div className={`w-7 h-7 rounded-full text-xs font-bold flex items-center justify-center shrink-0 transition-colors ${
+                          selected ? 'bg-teal-500 text-white' : 'bg-zinc-800 text-zinc-400'
+                        }`}>
+                          {selected ? <Check className="w-3.5 h-3.5" /> : m.fullName.charAt(0).toUpperCase()}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className={`text-sm font-medium truncate ${selected ? 'text-teal-300' : 'text-zinc-300'}`}>{m.fullName}</p>
+                          <p className="text-xs text-zinc-600 truncate">{m.email}</p>
+                        </div>
+                        {selected && <div className="w-1.5 h-1.5 rounded-full bg-teal-400 shrink-0" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </>
+          )}
+
+          {/* Error */}
           {error && (
             <div className="flex items-center gap-2 text-rose-300 text-sm bg-rose-900/20 border border-rose-800/40 rounded-xl px-4 py-3">
               <AlertCircle className="w-4 h-4 shrink-0" /> {error}
             </div>
           )}
         </form>
-        <div className="px-6 py-4 border-t border-[#2a2a2a] flex items-center justify-end gap-3 shrink-0">
-          <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl border border-[#2a2a2a] text-zinc-300 hover:bg-white/5 transition-colors text-sm font-medium">Cancel</button>
-          <button onClick={handleSubmit as unknown as React.MouseEventHandler} disabled={saving}
-            className="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 flex items-center gap-2">
-            {saving && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
-            {initial?.id ? 'Save Changes' : 'Create Meeting'}
-          </button>
+
+        {/* Footer */}
+        <div className="px-6 py-4 border-t border-[#1a1a1a] flex items-center justify-between shrink-0">
+          <p className="text-[11px] text-zinc-700">* Required fields</p>
+          <div className="flex items-center gap-3">
+            <button type="button" onClick={onClose}
+              className="px-4 py-2 rounded-xl text-zinc-400 hover:text-white hover:bg-white/5 transition-colors text-sm font-medium">
+              Cancel
+            </button>
+            <button onClick={handleSubmit as unknown as React.MouseEventHandler} disabled={saving}
+              className="px-5 py-2 rounded-xl text-white text-sm font-semibold transition-all disabled:opacity-50 flex items-center gap-2 active:scale-95"
+              style={{
+                background: 'linear-gradient(135deg, #14b8a6, #0d9488)',
+                boxShadow: '0 0 0 1px rgba(20,184,166,0.3), 0 4px 12px rgba(20,184,166,0.15)',
+              }}
+            >
+              {saving && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+              {isEdit ? 'Save Changes' : 'Create Meeting'}
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -231,7 +231,7 @@ export class CalendarService implements OnModuleInit {
   }
 
   async updateAttendance(meetingId: number, userId: number, status: string): Promise<MeetingParticipant> {
-    let participant = await this.participantRepo.findOne({
+    const participant = await this.participantRepo.findOne({
       where: { meeting: { id: meetingId }, userId },
     });
     if (!participant) {
