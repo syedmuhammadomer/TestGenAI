@@ -361,7 +361,7 @@ export class ProjectsService implements OnModuleInit {
 
   /** Stage 1: Extract all features and user stories from the SRS */
   private async callAiStage1(text: string, projectName: string): Promise<{ features: any[]; userStories: any[] }> {
-    const truncated = text.length > 25000 ? text.slice(0, 25000) + '\n[...truncated...]' : text;
+    const truncated = text.length > 15000 ? text.slice(0, 15000) + '\n[...truncated...]' : text;
 
     const systemPrompt = `You are a senior business analyst. Analyse the SRS and extract all features and user stories. Output ONLY a raw JSON object — no markdown, no fences, no explanation.
 
@@ -378,7 +378,7 @@ Rules:
     const raw = await this.callAiWithRetry(
       systemPrompt,
       `Project: ${projectName}\n\nSRS Content:\n${truncated}\n\nExtract all features and user stories:`,
-      8192,
+      4096,
     );
     const parsed = this.parseAiResponse(raw);
     return {
@@ -389,7 +389,6 @@ Rules:
 
   /** Stage 2: Generate detailed test cases covering every user story */
   private async callAiStage2(text: string, projectName: string, userStories: any[]): Promise<any[]> {
-    const truncated = text.length > 12000 ? text.slice(0, 12000) + '\n[...truncated...]' : text;
     const storiesSummary = userStories.map((s, i) => ({
       id: s.id ?? `US-${i + 1}`,
       actor: s.actor,
@@ -397,26 +396,20 @@ Rules:
       acceptanceCriteria: s.acceptanceCriteria,
     }));
 
-    const systemPrompt = `You are a senior QA architect. Generate comprehensive test cases for EVERY user story provided. Output ONLY a raw JSON array — no markdown, no fences, no commentary.
+    const systemPrompt = `You are a senior QA architect. Generate test cases for the provided user stories. Output ONLY a raw JSON array — no markdown, no fences.
 
-Schema — array of test case objects:
-[{"testCaseId":"TC-1","userStoryRef":"US-1","title":"string","type":"positive|negative|edge","preconditions":"All system state that must exist before this test","steps":"1. Step one\\n2. Step two\\n3. Step three","expectedResult":"Exact system behaviour and output after all steps","severity":"Critical|High|Medium|Low","category":"Functional|Security|Performance|UI|Integration"}]
+Schema:
+[{"testCaseId":"TC-1","userStoryRef":"US-1","title":"string","type":"positive|negative|edge","steps":"1. Step one\\n2. Step two","expectedResult":"Exact system behaviour","severity":"Critical|High|Medium|Low","category":"Functional|Security|Performance|UI|Integration"}]
 
-MANDATORY RULES — you MUST follow these exactly:
-1. For EACH user story generate a MINIMUM of 4 test cases:
-   - At least 2 POSITIVE test cases: happy path, successful scenarios, valid input combinations
-   - At least 1 NEGATIVE test case: invalid input, error conditions, unauthorized access, missing data
-   - At least 1 EDGE case: boundary values, empty states, maximum limits, concurrent operations
-2. If a story has complex acceptance criteria, generate one test case per criterion
-3. Steps must be specific, numbered, and detailed enough for a tester to follow exactly
-4. Expected results must describe the EXACT system response (status codes, messages, UI changes)
-5. Cover security and performance concerns where applicable
-6. Return a valid JSON array only — no wrapping object.`;
+Rules:
+- Generate 3-4 test cases per user story: 2 positive, 1 negative, 1 edge
+- Steps must be numbered and specific
+- Return a valid JSON array only.`;
 
     const raw = await this.callAiWithRetry(
       systemPrompt,
-      `Project: ${projectName}\n\nUser Stories to cover:\n${JSON.stringify(storiesSummary, null, 2)}\n\nSRS Context:\n${truncated}\n\nGenerate detailed test cases for ALL ${userStories.length} user stories (min 4 per story):`,
-      16384,
+      `Project: ${projectName}\n\nUser Stories:\n${JSON.stringify(storiesSummary, null, 2)}\n\nGenerate test cases:`,
+      8192,
     );
 
     const jsonStr = this.extractJson(raw);
@@ -466,7 +459,7 @@ Rules:
     const raw = await this.callAiWithRetry(
       systemPrompt,
       `Project: ${projectName}\n\nFeatures (${features.length}):\n${JSON.stringify(featSummary, null, 2)}\n\nUser Stories (${userStories.length}):\n${JSON.stringify(storySummary, null, 2)}\n\nTest Cases (${testCases.length}):\n${JSON.stringify(tcSummary, null, 2)}\n\nGenerate RTM and analytics:`,
-      8192,
+      4096,
     );
     const parsed = this.parseAiResponse(raw);
     return {
@@ -482,9 +475,9 @@ Rules:
 
     const controller = new AbortController();
     const hardTimer = setTimeout(() => {
-      this.logger.warn(`AI hard-timeout after 600 s [model=${model}]`);
+      this.logger.warn(`AI hard-timeout after 180 s [model=${model}]`);
       controller.abort();
-    }, 600000);
+    }, 180000);
 
     try {
       const response = await this.getOpenAiClient().chat.completions.create(
@@ -577,7 +570,7 @@ Rules:
     this.openAi = new OpenAI({
       apiKey: key,
       baseURL,
-      timeout: 600000,
+      timeout: 180000,
       defaultHeaders: { 'User-Agent': 'curl/8.5.0' },
     });
     return this.openAi;
@@ -649,10 +642,10 @@ Rules:
   }
 
   private cleanText(text: string) {
-    let cleaned = text.replace(/\s+/g, ' ').trim();
-    cleaned = cleaned.replace(/!\[[^\]]*\]\([^)]*\)/g, '');
-    cleaned = cleaned.replace(/\b(?:image|img|photo|picture|figure|diagram|chart|graph)\.(?:png|jpe?g|gif|bmp|webp|svg)\b/gi, '');
-    return cleaned.trim();
+    const lines = text.split(/\n/);
+    const bad = /(?:image|img|photo|picture|figure|diagram|chart|graph|screenshot|scan)\.(?:png|jpe?g|gif|bmp|webp|svg)|!\[.*?\]\(.*?\)|https?:\/\/[^\s)\]]+?\.(?:png|jpe?g|gif|bmp|webp|svg)/i;
+    const cleaned = lines.filter((line) => !bad.test(line)).join(' ');
+    return cleaned.replace(/\s+/g, ' ').trim();
   }
 
   private async extractTextFromFile(filePath: string) {
