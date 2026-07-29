@@ -348,7 +348,8 @@ export class ProjectsService implements OnModuleInit {
       await this.persistStructuredOutput(project, cleanedText, structured);
       await reportProgress(100);
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown processing error';
+      const rawMessage = error instanceof Error ? error.message : 'Unknown processing error';
+      const message = this.sanitizeAiError(rawMessage);
       await this.projectRepository.update(projectId, {
         status: ProjectStatus.Failed,
         failureReason: message,
@@ -641,10 +642,45 @@ Rules:
     return String(value);
   }
 
+  /** Detect AI provider errors related to image content and return a user-friendly message. */
+  private sanitizeAiError(message: string): string {
+    const imageErrorPatterns = [
+      /image.*does not support/i,
+      /does not support image input/i,
+      /cannot read.*\.(?:png|jpe?g|gif|bmp|webp|svg)/i,
+      /unsupported image/i,
+      /image content/i,
+      /vision/i,
+    ];
+    if (imageErrorPatterns.some((p) => p.test(message))) {
+      return 'The SRS document contains image content that cannot be processed by the current AI model. Please remove or replace images in your document with text descriptions and try again.';
+    }
+    return message;
+  }
+
   private cleanText(text: string) {
+    const ext = '(?:png|jpe?g|gif|bmp|webp|svg)';
+    const imgPattern = new RegExp(
+      '(?:' +
+        '(?:image|img|photo|picture|figure|diagram|chart|graph|screenshot|scan|fig|drawing|photo|snapshot|printscreen|screen.?capture)\\.\\s*' + ext +
+        '|' +
+        '(?:https?://[^\\s)\\]]*?' + ext + ')' +
+        '|' +
+        '!\\[.*?\\]\\(.*?' + ext + '\\)' +
+        '|' +
+        '<img[^>]*src="?[^"]*' + ext + '"?' +
+        '|' +
+        '(?:data:image/' + ext + ';base64,)' +
+        '|' +
+        '(?:^|\\s|[,;])' +
+          '(?:[a-zA-Z0-9_-]+\\.)*' +
+          '[a-zA-Z0-9_-]+\\.' + ext +
+        '(?=\\s|[,.;:!?)\\]|\\]|$)' +
+      ')',
+      'gi'
+    );
     const lines = text.split(/\n/);
-    const bad = /(?:image|img|photo|picture|figure|diagram|chart|graph|screenshot|scan)\.(?:png|jpe?g|gif|bmp|webp|svg)|!\[.*?\]\(.*?\)|https?:\/\/[^\s)\]]+?\.(?:png|jpe?g|gif|bmp|webp|svg)/i;
-    const cleaned = lines.filter((line) => !bad.test(line)).join(' ');
+    const cleaned = lines.filter((line) => !imgPattern.test(line)).join(' ');
     return cleaned.replace(/\s+/g, ' ').trim();
   }
 
@@ -754,6 +790,12 @@ Rules:
     }
     const first = raw.indexOf('{');
     const last = raw.lastIndexOf('}');
+    const firstArray = raw.indexOf('[');
+    const lastArray = raw.lastIndexOf(']');
+    if (firstArray !== -1 && lastArray !== -1 && (first === -1 || firstArray < first)) {
+      const candidate = raw.slice(firstArray, lastArray + 1);
+      try { JSON.parse(candidate); return candidate; } catch { /* not valid array */ }
+    }
     if (first !== -1 && last !== -1) {
       return raw.slice(first, last + 1);
     }
