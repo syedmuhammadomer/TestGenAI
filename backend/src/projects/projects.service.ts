@@ -379,7 +379,7 @@ Rules:
     const raw = await this.callAiWithRetry(
       systemPrompt,
       `Project: ${projectName}\n\nSRS Content:\n${truncated}\n\nExtract all features and user stories:`,
-      4096,
+      8192,
     );
     const parsed = this.parseAiResponse(raw);
     return {
@@ -662,9 +662,9 @@ Rules:
     const ext = '(?:png|jpe?g|gif|bmp|webp|svg)';
     const imgPattern = new RegExp(
       '(?:' +
-        '(?:image|img|photo|picture|figure|diagram|chart|graph|screenshot|scan|fig|drawing|photo|snapshot|printscreen|screen.?capture)\\.\\s*' + ext +
+        '(?:image|img|photo|picture|figure|diagram|chart|graph|screenshot|scan|fig|drawing|snapshot|printscreen|screen.?capture)\\.\\s*' + ext +
         '|' +
-        '(?:https?://[^\\s)\\]]*?' + ext + ')' +
+        '(?:https?://[^\\s)\\]\'"<>]+?' + ext + ')' +
         '|' +
         '!\\[.*?\\]\\(.*?' + ext + '\\)' +
         '|' +
@@ -672,10 +672,10 @@ Rules:
         '|' +
         '(?:data:image/' + ext + ';base64,)' +
         '|' +
-        '(?:^|\\s|[,;])' +
+        '(?:^|[\\s,;:(\\[{<"\'-])' +
           '(?:[a-zA-Z0-9_-]+\\.)*' +
           '[a-zA-Z0-9_-]+\\.' + ext +
-        '(?=\\s|[,.;:!?)\\]|\\]|$)' +
+        '(?=[\\s,.;:!?)\\]}\'"|>]|$)' +
       ')',
       'gi'
     );
