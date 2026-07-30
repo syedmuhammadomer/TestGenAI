@@ -659,29 +659,45 @@ Rules:
   }
 
   private cleanText(text: string) {
-    const ext = '(?:png|jpe?g|gif|bmp|webp|svg)';
-    const imgPattern = new RegExp(
-      '(?:' +
-        '(?:image|img|photo|picture|figure|diagram|chart|graph|screenshot|scan|fig|drawing|snapshot|printscreen|screen.?capture)\\.\\s*' + ext +
-        '|' +
-        '(?:https?://[^\\s)\\]\'"<>]+?' + ext + ')' +
-        '|' +
-        '!\\[.*?\\]\\(.*?' + ext + '\\)' +
-        '|' +
-        '<img[^>]*src="?[^"]*' + ext + '"?' +
-        '|' +
-        '(?:data:image/' + ext + ';base64,)' +
-        '|' +
-        '(?:^|[\\s,;:(\\[{<"\'-])' +
-          '(?:[a-zA-Z0-9_-]+\\.)*' +
-          '[a-zA-Z0-9_-]+\\.' + ext +
-        '(?=[\\s,.;:!?)\\]}\'"|>]|$)' +
-      ')',
+    const imageExt = '(?:png|jpe?g|gif|bmp|webp|svg)';
+    let cleaned = text;
+
+    cleaned = cleaned.replace(new RegExp('data:image/' + imageExt + ';base64,[^\\s"\'<>]+', 'gi'), '');
+    cleaned = cleaned.replace(/!\[.*?\]\(.*?\)/g, '');
+    cleaned = cleaned.replace(/<img[^>]*>/gi, '');
+    cleaned = cleaned.replace(new RegExp('(?:https?://[^\\s)\\]\'"<>]+?' + imageExt + ')', 'gi'), '');
+
+    const fileRef = new RegExp(
+      '(?:^|[\\s,;:(\\[{<"\'-])' +
+      '(?:[a-zA-Z0-9_-]+\\.)*' +
+      '[a-zA-Z0-9_-]+\\.' + imageExt +
+      '(?=[\\s,.;:!?)\\]}\'"|>]|$)',
       'gi'
     );
-    const lines = text.split(/\n/);
-    const cleaned = lines.filter((line) => !imgPattern.test(line)).join(' ');
-    return cleaned.replace(/\s+/g, ' ').trim();
+    cleaned = cleaned.replace(fileRef, '');
+
+    const prefixPatterns = [
+      /(?:cannot\s+read|error\s+loading|error\s+reading|failed\s+to\s+load|missing\s+image)\s+[^\s]*\.(?:png|jpe?g|gif|bmp|webp|svg)/gi,
+      /(?:image|img|photo|picture|figure|diagram|chart|graph|screenshot|scan|fig|drawing)\s*\d*\s*[:.]\s*/gi,
+    ];
+    for (const pattern of prefixPatterns) {
+      cleaned = cleaned.replace(pattern, '');
+    }
+
+    const lines = cleaned.split(/\n/);
+    const filtered = lines.filter((line) => {
+      const trimmed = line.trim();
+      if (!trimmed) return false;
+      if (/^[a-zA-Z0-9_-]+\.(?:png|jpe?g|gif|bmp|webp|svg)$/i.test(trimmed)) return false;
+      if (/^(?:image|img|figure|diagram|chart|graph|screenshot)\s*\d*$/i.test(trimmed)) return false;
+      return true;
+    });
+    cleaned = filtered.join(' ').replace(/\s+/g, ' ').trim();
+
+    if (!cleaned) {
+      cleaned = 'The uploaded document did not contain extractable text.';
+    }
+    return cleaned;
   }
 
   private async extractTextFromFile(filePath: string) {
