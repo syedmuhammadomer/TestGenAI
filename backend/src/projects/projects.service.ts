@@ -659,40 +659,37 @@ Rules:
   }
 
   private cleanText(text: string) {
-    const imageExt = '(?:png|jpe?g|gif|bmp|webp|svg)';
     let cleaned = text;
 
-    cleaned = cleaned.replace(new RegExp('data:image/' + imageExt + ';base64,[^\\s"\'<>]+', 'gi'), '');
+    // 1. Remove base64 inline images
+    cleaned = cleaned.replace(/data:image\/(?:png|jpeg|jpg|gif|bmp|webp|svg\+xml);base64,[^\s"'"<>]+/gi, '');
+
+    // 2. Remove markdown images and HTML img tags
     cleaned = cleaned.replace(/!\[.*?\]\(.*?\)/g, '');
     cleaned = cleaned.replace(/<img[^>]*>/gi, '');
-    cleaned = cleaned.replace(new RegExp('(?:https?://[^\\s)\\]\'"<>]+?' + imageExt + ')', 'gi'), '');
 
+    // 3. Remove absolute image URLs
+    cleaned = cleaned.replace(/https?:\/\/[^\s)"'<>]+?\.(?:png|jpe?g|gif|bmp|webp|svg)/gi, '');
+
+    // 4. Remove lines that are image parsing error messages from PDF/DOCX extractors
+    cleaned = cleaned.replace(/(?:Cannot read|cannot read|Error loading|error loading|Error reading|error reading|Failed to load|failed to load|Missing image|missing image)\s+.*?\.(?:png|jpe?g|gif|bmp|webp|svg)\s*[^\n]*/gi, '');
+
+    // 5. Remove lines that are bare image labels (e.g. "Figure 1", "Diagram 2")
+    cleaned = cleaned.replace(/^\s*(?:(?:image|img|photo|picture|figure|diagram|chart|graph|screenshot|scan|fig|drawing)\s*\d*)\s*$/gim, '');
+
+    // 6. Remove standalone image file references inline
+    const ext = '(?:png|jpe?g|gif|bmp|webp|svg)';
     const fileRef = new RegExp(
       '(?:^|[\\s,;:(\\[{<"\'-])' +
       '(?:[a-zA-Z0-9_-]+\\.)*' +
-      '[a-zA-Z0-9_-]+\\.' + imageExt +
+      '[a-zA-Z0-9_-]+\\.' + ext +
       '(?=[\\s,.;:!?)\\]}\'"|>]|$)',
       'gi'
     );
     cleaned = cleaned.replace(fileRef, '');
 
-    const prefixPatterns = [
-      /(?:cannot\s+read|error\s+loading|error\s+reading|failed\s+to\s+load|missing\s+image)\s+[^\s]*\.(?:png|jpe?g|gif|bmp|webp|svg)/gi,
-      /(?:image|img|photo|picture|figure|diagram|chart|graph|screenshot|scan|fig|drawing)\s*\d*\s*[:.]\s*/gi,
-    ];
-    for (const pattern of prefixPatterns) {
-      cleaned = cleaned.replace(pattern, '');
-    }
-
-    const lines = cleaned.split(/\n/);
-    const filtered = lines.filter((line) => {
-      const trimmed = line.trim();
-      if (!trimmed) return false;
-      if (/^[a-zA-Z0-9_-]+\.(?:png|jpe?g|gif|bmp|webp|svg)$/i.test(trimmed)) return false;
-      if (/^(?:image|img|figure|diagram|chart|graph|screenshot)\s*\d*$/i.test(trimmed)) return false;
-      return true;
-    });
-    cleaned = filtered.join(' ').replace(/\s+/g, ' ').trim();
+    // 7. Normalize whitespace
+    cleaned = cleaned.replace(/\s+/g, ' ').trim();
 
     if (!cleaned) {
       cleaned = 'The uploaded document did not contain extractable text.';
