@@ -42,7 +42,19 @@ export default function Hero() {
 
           <div className="flex flex-col sm:flex-row gap-4 mb-16">
             <Button variant="primary" size="lg" className="gap-2">
-              Start Generating Free <ArrowRight size={20} />
+              <span>Start Generating Free</span>
+              <motion.span
+                className="relative inline-flex items-center justify-center"
+                whileHover={{ x: 6, scale: 1.05 }}
+                transition={{ type: 'spring', stiffness: 260, damping: 18 }}
+              >
+                <motion.span
+                  className="pointer-events-none absolute inset-0 rounded-full bg-teal-400/30 blur-xl"
+                  animate={{ opacity: [0.25, 0.75, 0.25], scale: [0.85, 1.15, 0.85] }}
+                  transition={{ duration: 1.6, repeat: Infinity, ease: 'easeInOut' }}
+                />
+                <ArrowRight size={20} className="relative z-10" />
+              </motion.span>
             </Button>
             <Button variant="outline" size="lg" className="gap-2">
               <Play size={20} /> Watch Demo
