@@ -414,19 +414,48 @@ Rules:
     );
 
     const jsonStr = this.extractJson(raw);
+    // Try parsing and accept several common key variations the model may return.
     try {
-      const parsed = JSON.parse(jsonStr);
-      if (Array.isArray(parsed)) return parsed;
-      if (Array.isArray(parsed.testCases)) return parsed.testCases;
+      const parsedAny = JSON.parse(jsonStr);
+      if (Array.isArray(parsedAny)) return parsedAny;
+      // Common keys we tolerate from different LLM outputs
+      const altKeys = ['testCases', 'tests', 'test_cases', 'testcases', 'cases', 'items'];
+      for (const k of altKeys) {
+        if (Array.isArray((parsedAny as any)[k])) {
+          this.logger.log(`callAiStage2: Found test cases under key '${k}'`);
+          return (parsedAny as any)[k];
+        }
+      }
     } catch { /* continue */ }
+
     try {
       const sanitised = this.sanitiseJson(jsonStr);
       const repaired = this.repairJson(sanitised);
       const parsed = JSON.parse(repaired);
       if (Array.isArray(parsed)) return parsed;
+      const altKeys = ['testCases', 'tests', 'test_cases', 'testcases', 'cases', 'items'];
+      for (const k of altKeys) {
+        if (Array.isArray((parsed as any)[k])) {
+          this.logger.log(`callAiStage2 (repaired): Found test cases under key '${k}'`);
+          return (parsed as any)[k];
+        }
+      }
     } catch { /* continue */ }
+
     const partial = this.extractPartialResult(jsonStr);
-    return Array.isArray(partial.testCases) ? partial.testCases : [];
+    if (Array.isArray(partial.testCases) && partial.testCases.length > 0) return partial.testCases;
+    // As a final fallback, try to detect any top-level array in the raw string
+    const topArrayMatch = jsonStr.match(/\[\s*\{/);
+    if (topArrayMatch) {
+      try {
+        const candidate = this.extractJson(jsonStr);
+        const parsed = JSON.parse(candidate);
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* ignore */ }
+    }
+
+    this.logger.warn('callAiStage2: No test cases could be extracted from AI response');
+    return [];
   }
 
   /** Stage 3: Build RTM and analytics from the collected data */
